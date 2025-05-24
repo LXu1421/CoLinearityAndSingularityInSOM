@@ -1,0 +1,7 @@
+Model,Type,Features,Precision,Recall,F1-Score,Accuracy
+Gradual Raw,Gradual,Raw,82%,95%,88%,98%
+Gradual Augmented,Gradual,Augmented,87%,73%,79%,97%
+Gradual PCA,Gradual,PCA,98%,74%,85%,98%
+Crisp Raw,Crisp,Raw,100%,100%,100%,100%
+Crisp Augmented,Crisp,Augmented,94%,96%,95%,99%
+Crisp PCA,Crisp,PCA,99%,100%,100%,100%
