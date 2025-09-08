@@ -8,12 +8,38 @@ import matplotlib.ticker as ticker
 
 
 
-def generate_spherical_clusters(n_samples=1000, cluster_distance=2.0, cluster_std=0.4):
-    """Generate two spherical clusters with variable distance and standard deviation."""
-    cluster_center1 = np.array([-cluster_distance / 2, -cluster_distance / 2])
-    cluster_center2 = np.array([cluster_distance / 2, cluster_distance / 2])
+# def generate_spherical_clusters(n_samples=1000, cluster_distance=2.0, cluster_std=0.4):
+#     """Generate two spherical clusters with variable distance and standard deviation."""
+#     cluster_center1 = np.array([-cluster_distance / 2, -cluster_distance / 2])
+#     cluster_center2 = np.array([cluster_distance / 2, cluster_distance / 2])
+#
+#    # Generate clusters
+#     cluster1 = np.random.randn(n_samples // 2, 2) * cluster_std + cluster_center1
+#     cluster2 = np.random.randn(n_samples // 2, 2) * cluster_std + cluster_center2
+#
+#    # Labels (0 for cluster1, 1 for cluster2)
+#     labels = np.concatenate([np.zeros(n_samples // 2), np.ones(n_samples // 2)])
+#
+#    # Original features (PC1 and PC2)
+#     X = np.vstack([cluster1, cluster2])
+#
+#    # Add collinear feature (PC1b is a noisy version of PC1)
+#     PC1b = X[:, 0] + np.random.normal(0, 0.02, n_samples)
+#
+#    # Add noise features
+#     noise_features = np.random.randn(n_samples, 3)  # 3 noise features
+#
+#    # Combine all features
+#     X_extended = np.column_stack([X, PC1b, noise_features])
+#
+#   return X, X_extended, labels
 
-    # Generate clusters
+def generate_spherical_clusters(n_samples=1000, cluster_distance=2.0, cluster_std=0.4):
+    # Separate clusters ONLY along PC1 (keep PC2 centers at 0)
+    cluster_center1 = np.array([-cluster_distance / 2, 0])  # Only PC1 varies
+    cluster_center2 = np.array([cluster_distance / 2, 0])   # PC2 center = 0 for both
+
+    # Generate clusters (unchanged)
     cluster1 = np.random.randn(n_samples // 2, 2) * cluster_std + cluster_center1
     cluster2 = np.random.randn(n_samples // 2, 2) * cluster_std + cluster_center2
 
@@ -130,10 +156,10 @@ def plot_results_grid(results_df):
 
     # Define metrics and titles
     ratio_metrics = ['precision_ratio', 'recall_ratio', 'f1_ratio', 'accuracy_ratio']
-    ratio_titles = ['Precision Ratio (Extended/Simple)',
-                    'Recall Ratio (Extended/Simple)',
-                    'F1-Score Ratio (Extended/Simple)',
-                    'Accuracy Ratio (Extended/Simple)']
+    ratio_titles = ['Precision Ratio (Extended/Raw)',
+                    'Recall Ratio (Extended/Raw)',
+                    'F1-Score Ratio (Extended/Raw)',
+                    'Accuracy Ratio (Extended/Raw)']
 
     # Plot ratio heatmaps
     for ax, metric, title in zip(axes.flatten(), ratio_metrics, ratio_titles):
@@ -172,8 +198,8 @@ def plot_results_grid(results_df):
     # Create a figure with subplots for absolute metrics
     fig, axes = plt.subplots(2, 2, figsize=(16, 14))
     abs_metrics = ['extended_f1', 'simple_f1', 'extended_accuracy', 'simple_accuracy']
-    abs_titles = ['Extended F1-Score', 'Simple F1-Score',
-                  'Extended Accuracy', 'Simple Accuracy']
+    abs_titles = ['Extended F1-Score', 'Raw F1-Score',
+                  'Extended Accuracy', 'Raw Accuracy']
 
     # Plot absolute metric heatmaps
     for ax, metric, title in zip(axes.flatten(), abs_metrics, abs_titles):

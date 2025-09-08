@@ -4,9 +4,10 @@ import pandas as pd
 import matplotlib.pyplot as plt
 from matplotlib.patches import Ellipse
 
+
 # Define lithology mappings for each Q file
 lithology_mappings = {
-    'Q001': {
+    'Q004': {
         1: 'Mafic volcanic',
         2: 'Sedimentary cover',
         3: 'Psammitic sediment',
@@ -19,19 +20,19 @@ lithology_mappings = {
         3: 'Psammitic sediment',
         4: 'Pelitic sediment'
     },
+    'Q001': {
+        1: 'Sedimentary cover',
+        2: 'Psammitic sediment',
+        3: 'Felsic intrusive',
+        4: 'Pelitic sediment'
+    },
     'Q003': {
         1: 'Sedimentary cover',
         2: 'Psammitic sediment',
         3: 'Felsic intrusive',
         4: 'Pelitic sediment'
     },
-    'Q004': {
-        1: 'Sedimentary cover',
-        2: 'Psammitic sediment',
-        3: 'Felsic intrusive',
-        4: 'Pelitic sediment'
-    },
-    'Q005': {
+    'Q006': {
         1: 'Chert',
         2: 'Carbonaceous rock',
         3: 'Sedimentary cover',
@@ -39,7 +40,7 @@ lithology_mappings = {
         5: 'Felsic intrusive',
         6: 'Pelitic sediment'
     },
-    'Q006': {
+    'Q005': {
         1: 'Intermediate intrusive',
         2: 'Chert',
         3: 'Sedimentary cover',
@@ -82,6 +83,7 @@ lithology_colors = {
     'Intermediate intrusive': Bcolor[5]  # I/m/u intrusive
 }
 
+som_shape=7
 
 def process_accuracy_files(input_dir, output_dir):
     """Process all accuracy metric files and generate visualizations."""

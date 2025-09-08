@@ -18,6 +18,7 @@ from matplotlib.colors import LinearSegmentedColormap
 
 # This part of the code is for data preparation
 
+
 # Add GCI values for each model
 GLOBAL_GCI_VALUES = {
     'Q004': 0.6125,
@@ -74,6 +75,7 @@ lithology_mappings = {
     }
 }
 
+
 def create_output_dir():
     """Create output directory if it doesn't exist."""
     output_dir = "SyntheticNoddy"
@@ -86,7 +88,7 @@ def create_output_dir():
 
 
 def load_bmp_to_matrix(file_path, expected_shape=None, keep_color=False):
-    """Load BMP file into numpy matrix."""
+    """Load BMP file into numpy matrix with enhanced validation."""
     try:
         img = Image.open(file_path)
         if not keep_color and img.mode != 'L':
@@ -100,6 +102,10 @@ def load_bmp_to_matrix(file_path, expected_shape=None, keep_color=False):
 
         if expected_shape and matrix.shape[:2] != expected_shape:
             print(f"Warning: {file_path} has shape {matrix.shape}, expected {expected_shape}")
+
+        # Check if data is constant or has very low variability
+        if not keep_color and np.std(matrix) < 1e-6:
+            print(f"WARNING: {file_path} has very low variability (std = {np.std(matrix):.6f})")
 
         return matrix
     except Exception as e:
@@ -277,6 +283,10 @@ def expand_planview_to_geophysics_size(planview_data, target_shape=(845, 1212)):
     if expanded.shape[1] > target_shape[1]:
         expanded = expanded[:, :target_shape[1], ...]
 
+    # DEBUG: Check if expansion worked correctly
+    if expanded.shape[:2] != target_shape:
+        print(f"WARNING: Expanded data shape {expanded.shape} doesn't match target {target_shape}")
+
     return expanded
 
 
@@ -439,7 +449,7 @@ def validate_exported_data(file_path, expected_shape=None, min_size_kb=100):
         return False
 
 
-def calculate_local_gci(lithology_map, window_size=5):
+def calculate_local_gci(lithology_map, window_size=100):
     """
     Calculate local Geological Complexity Index (GCI) based on lithology variance.
 
@@ -452,8 +462,8 @@ def calculate_local_gci(lithology_map, window_size=5):
     gci_map = np.zeros_like(lithology_map, dtype=np.float32)
 
     # Theoretical maximums (adjusted for 5x5 window)
-    max_lith_count = min(8, window_size ** 2)  # Realistic maximum unique lithologies
-    max_border_length = 4 * (window_size - 1)  # Maximum possible borders
+    max_lith_count = min(4, window_size ** 2)  # Realistic maximum unique lithologies
+    max_border_length = 4 * (window_size//10 - 1)  # Maximum possible borders
 
     for i in range(lithology_map.shape[0]):
         for j in range(lithology_map.shape[1]):
@@ -472,29 +482,6 @@ def calculate_local_gci(lithology_map, window_size=5):
                                    0.5 * min(border_pixels, max_border_length) / max_border_length)
 
     return gci_map, lith_count, border_pixels
-
-
-def calculate_moving_correlation(tmi, gravity, window_size=5):
-    """Calculate moving-window Pearson correlation between TMI and Gravity."""
-    # Pad the data to handle edges
-    pad_size = window_size // 2
-    tmi_padded = np.pad(tmi, pad_size, mode='reflect')
-    grav_padded = np.pad(gravity, pad_size, mode='reflect')
-
-    # Initialize output
-    corr_map = np.zeros_like(tmi, dtype=np.float32)
-
-    # Calculate correlation for each window
-    for i in range(tmi.shape[0]):
-        for j in range(tmi.shape[1]):
-            tmi_window = tmi_padded[i:i + window_size, j:j + window_size].flatten()
-            grav_window = grav_padded[i:i + window_size, j:j + window_size].flatten()
-
-            # Calculate Pearson correlation
-            corr, _ = pearsonr(tmi_window, grav_window)
-            corr_map[i, j] = corr
-
-    return corr_map
 
 
 def calculate_vif(features):
@@ -543,10 +530,10 @@ def plot_collinearity_heatmap(corr_map, gci_map, global_gci, title, filename):
     r_ratio[valid_mask] = local_corr[valid_mask] / global_mean
 
     # Overlay hotspots where R_ratio > Percentile-based threshold
-    threshold = np.percentile(r_ratio, 90)  # Top 10% as hotspots
+    threshold = np.percentile(r_ratio, 95)  # Top 10% as hotspots
     hotspot_mask = r_ratio > threshold
     y, x = np.where(hotspot_mask)
-    ax.scatter(x * 5, y * 5, c='yellow', s=10, alpha=0.7,
+    ax.scatter(x * 5, y * 5, c='yellow', s=2, alpha=0.4, marker='.',
                label=f'Hotspots (R > {threshold:.1f}×global)')
 
     ax.set_title(f'{title}\nGlobal GCI: {global_gci:.4f}', fontsize=14, pad=20)
@@ -560,9 +547,12 @@ def plot_collinearity_heatmap(corr_map, gci_map, global_gci, title, filename):
 
 
 def enhanced_analysis(geophys_data, planview_data, output_dir):
-    """Perform enhanced analysis with correlations and GCI mapping."""
+    """Perform enhanced analysis with improved correlations and GCI mapping."""
     enhanced_dir = os.path.join(output_dir, "Enhanced_Analysis")
     os.makedirs(enhanced_dir, exist_ok=True)
+
+    # Store summary statistics for all models
+    all_stats = []
 
     for i in range(1, 7):
         q_key = f"Q{i:03d}"
@@ -578,12 +568,40 @@ def enhanced_analysis(geophys_data, planview_data, output_dir):
         gravity = geophys_data[grav_key]['raw']
         lithology = expand_planview_to_geophysics_size(planview_data[pv_key])
 
+        # DEBUG: Check data variability for problematic models
+        if q_key in ['Q003', 'Q005']:
+            print(f"DEBUG {q_key}: TMI range = {tmi.min():.6f} to {tmi.max():.6f}, std = {tmi.std():.6f}")
+            print(
+                f"DEBUG {q_key}: Gravity range = {gravity.min():.6f} to {gravity.max():.6f}, std = {gravity.std():.6f}")
+
+            # Check if data is nearly constant
+            if tmi.std() < 1e-6 or gravity.std() < 1e-6:
+                print(f"WARNING: {q_key} has very low variability - this may cause zero correlation")
+
+                # Apply slight noise to avoid division by zero in correlation
+                if tmi.std() < 1e-6:
+                    tmi = tmi + np.random.normal(0, 1e-6, tmi.shape)
+                    print(f"Applied minimal noise to TMI for {q_key}")
+                if gravity.std() < 1e-6:
+                    gravity = gravity + np.random.normal(0, 1e-6, gravity.shape)
+                    print(f"Applied minimal noise to Gravity for {q_key}")
+
         # Convert lithology to single channel if RGB
         if lithology.ndim == 3:
             lithology = (lithology[..., 0] << 16) | (lithology[..., 1] << 8) | lithology[..., 2]
 
-        # Calculate moving-window correlations
+        # Calculate moving-window correlations (now using absolute values)
         corr_map = calculate_moving_correlation(tmi, gravity)
+
+        # DEBUG: Check correlation results
+        if q_key in ['Q003', 'Q005']:
+            print(f"DEBUG {q_key}: Correlation map range = {corr_map.min():.6f} to {corr_map.max():.6f}")
+            print(f"DEBUG {q_key}: Non-zero correlation values count = {np.sum(corr_map != 0)}")
+
+            # If still all zeros, try a different approach
+            if np.all(corr_map == 0):
+                print(f"WARNING: {q_key} still has all zero correlations, trying alternative method")
+                corr_map = alternative_correlation_method(tmi, gravity)
 
         # Calculate local GCI
         gci_map, lith_count, border_length = calculate_local_gci(lithology)
@@ -597,45 +615,124 @@ def enhanced_analysis(geophys_data, planview_data, output_dir):
                              geophys_data[grav_key]['1VD']], axis=-1)
         vif = calculate_vif(features)
 
+        # Create enhanced collinearity plot
+        zones, corr_threshold, gci_median = plot_enhanced_collinearity_heatmap(
+            corr_map, gci_map, global_gci,
+            f"Model {q_key}",
+            os.path.join(enhanced_dir, f"{q_key}_enhanced_collinearity_analysis.png")
+        )
+
+        # Calculate zone statistics
+        zone_stats = {}
+        for zone_id in [1, 2, 3, 4]:
+            zone_mask = zones == zone_id
+            zone_area = np.sum(zone_mask)
+            zone_stats[f'zone_{zone_id}_area_pct'] = (zone_area / zones.size) * 100
+            if zone_area > 0:
+                zone_stats[f'zone_{zone_id}_mean_corr'] = np.mean(corr_map[zone_mask])
+                zone_stats[f'zone_{zone_id}_mean_gci'] = np.mean(gci_map[zone_mask])
+
         # Save all metrics
         np.savez_compressed(
             os.path.join(enhanced_dir, f"{q_key}_enhanced_metrics.npz"),
             correlation_map=corr_map,
             gci_map=gci_map,
+            zones=zones,
             lithology_count=lith_count,
             border_length=border_length,
             vif=vif,
-            global_gci=global_gci
+            global_gci=global_gci,
+            thresholds={'corr_threshold': corr_threshold, 'gci_median': gci_median}
         )
 
-        # Plot collinearity heatmap with GCI
-        plot_collinearity_heatmap(
-            corr_map, gci_map, global_gci,
-            f"Collinearity and GCI Zones - {q_key}",
-            os.path.join(enhanced_dir, f"{q_key}_collinearity_gci.png")
-        )
-
-        # Create summary statistics
+        # Create comprehensive summary statistics
         stats = {
             'model': q_key,
             'global_gci': global_gci,
             'mean_local_gci': np.mean(gci_map),
-            'mean_correlation': np.mean(corr_map),
-            'vif_tmi': vif[0],
-            'vif_gravity': vif[1],
-            'vif_tmi_1vd': vif[2],
-            'vif_gravity_1vd': vif[3],
-            'mean_r_ratio': np.mean(block_reduce(corr_map, (5, 5), np.mean)) / np.mean(corr_map)
+            'std_local_gci': np.std(gci_map),
+            'mean_abs_correlation': np.mean(corr_map),
+            'std_abs_correlation': np.std(corr_map),
+            'correlation_threshold': corr_threshold,
+            'gci_median': gci_median,
+            'vif_tmi': vif[0] if len(vif) > 0 else np.nan,
+            'vif_gravity': vif[1] if len(vif) > 1 else np.nan,
+            'vif_tmi_1vd': vif[2] if len(vif) > 2 else np.nan,
+            'vif_gravity_1vd': vif[3] if len(vif) > 3 else np.nan,
+            **zone_stats
         }
 
-        # Save stats to CSV (append if file exists)
-        stats_file = os.path.join(enhanced_dir, "summary_statistics.csv")
-        if os.path.exists(stats_file):
-            existing = pd.read_csv(stats_file)
-            updated = pd.concat([existing, pd.DataFrame([stats])], ignore_index=True)
-            updated.to_csv(stats_file, index=False)
-        else:
-            pd.DataFrame([stats]).to_csv(stats_file, index=False)
+        all_stats.append(stats)
+
+    # Save comprehensive statistics
+    if all_stats:
+        stats_df = pd.DataFrame(all_stats)
+        stats_df.to_csv(os.path.join(enhanced_dir, "comprehensive_statistics.csv"), index=False)
+
+        # Create summary report
+        create_analysis_summary_report(stats_df, enhanced_dir)
+
+
+def alternative_correlation_method(data1, data2, window_size=5):
+    """
+    Alternative correlation calculation method for data with very low variability.
+    Uses a normalized cross-correlation approach that's more robust for near-constant data.
+    """
+    h, w = data1.shape
+    corr_map = np.zeros_like(data1)
+
+    pad_size = window_size // 2
+    data1_pad = np.pad(data1, pad_size, mode='reflect')
+    data2_pad = np.pad(data2, pad_size, mode='reflect')
+
+    for i in range(h):
+        for j in range(w):
+            window1 = data1_pad[i:i + window_size, j:j + window_size].flatten()
+            window2 = data2_pad[i:i + window_size, j:j + window_size].flatten()
+
+            # Handle near-constant windows
+            if np.std(window1) < 1e-6 or np.std(window2) < 1e-6:
+                # If either window is constant, set correlation to 0
+                corr_map[i, j] = 0
+                continue
+
+            # Normalize the windows
+            window1_norm = (window1 - np.mean(window1)) / np.std(window1)
+            window2_norm = (window2 - np.mean(window2)) / np.std(window2)
+
+            # Calculate cross-correlation
+            cross_corr = np.sum(window1_norm * window2_norm) / (window_size * window_size)
+
+            # Use absolute value for collinearity measure
+            corr_map[i, j] = abs(cross_corr)
+
+    return corr_map
+
+
+def create_analysis_summary_report(stats_df, output_dir):
+    """Create a summary report of the analysis results."""
+    report_path = os.path.join(output_dir, "analysis_summary_report.txt")
+
+    with open(report_path, 'w') as f:
+        f.write("ENHANCED COLLINEARITY AND GCI ANALYSIS SUMMARY\n")
+        f.write("=" * 50 + "\n\n")
+
+        f.write("METHODOLOGY:\n")
+        f.write("- Collinearity measured using absolute Pearson correlation |R| in 5×5 moving windows\n")
+        f.write("- GCI calculated locally using lithology count and boundary length\n")
+        f.write("- Four zones classified based on correlation and GCI thresholds\n")
+        f.write("- Hotspots identified using 90th percentile threshold\n\n")
+
+        f.write("MODEL STATISTICS:\n")
+        for _, row in stats_df.iterrows():
+            f.write(f"\n{row['model']}:\n")
+            f.write(f"  Global GCI: {row['global_gci']:.3f}\n")
+            f.write(f"  Mean |R|: {row['mean_abs_correlation']:.3f}\n")
+            f.write(f"  Correlation threshold: {row['correlation_threshold']:.3f}\n")
+            f.write(f"  Zone 1 (High Col./High GCI): {row.get('zone_1_area_pct', 0):.1f}%\n")
+            f.write(f"  Zone 2 (High Col./Low GCI): {row.get('zone_2_area_pct', 0):.1f}%\n")
+            f.write(f"  Zone 3 (Low Col./High GCI): {row.get('zone_3_area_pct', 0):.1f}%\n")
+            f.write(f"  Zone 4 (Low Col./Low GCI): {row.get('zone_4_area_pct', 0):.1f}%\n")
 
 
 def plot_lithology_geophysics(model, lithology_map, tmi, gravity, lithology_mappings, output_dir):
@@ -742,6 +839,143 @@ def plot_lithology_geophysics(model, lithology_map, tmi, gravity, lithology_mapp
     plt.savefig(fig_path, dpi=300, bbox_inches='tight')
     plt.close()
     print(f"Saved lithology geophysics plot: {fig_path}")
+
+
+def calculate_moving_correlation(data1, data2, window_size=5):
+    """Calculate moving window correlation using absolute values for proper collinearity detection."""
+    h, w = data1.shape
+    corr_map = np.zeros_like(data1)
+
+    pad_size = window_size // 2
+    data1_pad = np.pad(data1, pad_size, mode='reflect')
+    data2_pad = np.pad(data2, pad_size, mode='reflect')
+
+    for i in range(h):
+        for j in range(w):
+            window1 = data1_pad[i:i + window_size, j:j + window_size].flatten()
+            window2 = data2_pad[i:i + window_size, j:j + window_size].flatten()
+
+            # Calculate correlation and take absolute value for true collinearity
+            corr = np.corrcoef(window1, window2)[0, 1]
+            if not np.isnan(corr):
+                corr_map[i, j] = abs(corr)  # Use absolute correlation
+
+    return corr_map
+
+
+def identify_collinearity_zones(corr_map, gci_map, threshold_percentile=90):
+    """Identify and classify different collinearity zones."""
+    # Use absolute correlation threshold
+    corr_threshold = np.percentile(corr_map[~np.isnan(corr_map)], threshold_percentile)
+    gci_median = np.median(gci_map[~np.isnan(gci_map)])
+
+    # Create zone classifications
+    zones = np.zeros_like(corr_map, dtype=int)
+
+    # Zone 1: High collinearity + High GCI (complex geology with correlated responses)
+    high_corr_high_gci = (corr_map >= corr_threshold) & (gci_map >= gci_median)
+    zones[high_corr_high_gci] = 1
+
+    # Zone 2: High collinearity + Low GCI (simple geology with correlated responses)
+    high_corr_low_gci = (corr_map >= corr_threshold) & (gci_map < gci_median)
+    zones[high_corr_low_gci] = 2
+
+    # Zone 3: Low collinearity + High GCI (complex geology with uncorrelated responses)
+    low_corr_high_gci = (corr_map < corr_threshold) & (gci_map >= gci_median)
+    zones[low_corr_high_gci] = 3
+
+    # Zone 4: Low collinearity + Low GCI (simple geology with uncorrelated responses)
+    low_corr_low_gci = (corr_map < corr_threshold) & (gci_map < gci_median)
+    zones[low_corr_low_gci] = 4
+
+    return zones, corr_threshold, gci_median
+
+
+def plot_enhanced_collinearity_heatmap(corr_map, gci_map, global_gci, title, save_path):
+    """Create an enhanced collinearity heatmap with clear zone labels and explanations."""
+    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(16, 6))
+
+    # Left panel: Correlation map with GCI contours and zone labels
+    zones, corr_threshold, gci_median = identify_collinearity_zones(corr_map, gci_map)
+
+    # Plot absolute correlation as heatmap
+    im1 = ax1.imshow(corr_map, cmap='RdYlBu_r', vmin=0, vmax=1, origin='lower')
+
+    # Add GCI contours
+    contour_levels = [0.2, 0.4, 0.6, 0.8]
+    cs = ax1.contour(gci_map, levels=contour_levels, colors='black', linewidths=1.5, alpha=0.8)
+    ax1.clabel(cs, inline=True, fontsize=8, fmt='GCI=%.1f', colors='white')
+
+    # Highlight collinearity hotspots (high absolute correlation)
+    hotspots = corr_map >= corr_threshold
+    #ax1.contour(hotspots.astype(int), levels=[0.5], colors='yellow', linewidths=3, alpha=0.9)
+
+    # Add zone annotations with arrows
+    h, w = corr_map.shape
+
+    # Find representative points for each zone
+    zone_points = {}
+    for zone_id in [1, 2, 3, 4]:
+        zone_mask = zones == zone_id
+        if np.any(zone_mask):
+            # Find centroid of largest connected component
+            y_coords, x_coords = np.where(zone_mask)
+            if len(y_coords) > 0:
+                zone_points[zone_id] = (np.mean(x_coords), np.mean(y_coords))
+
+    # Add labeled arrows pointing to different zones
+    zone_labels = {
+        1: 'High Col.\nHigh GCI',
+        2: 'High Col.\nLow GCI',
+        3: 'Low Col.\nHigh GCI',
+        4: 'Low Col.\nLow GCI'
+    }
+
+    zone_colors = {1: 'red', 2: 'orange', 3: 'blue', 4: 'green'}
+
+    for zone_id, (x, y) in zone_points.items():
+        if zone_id in zone_labels:
+            # Add arrow and label
+            ax1.annotate(zone_labels[zone_id],
+                         xy=(x, y), xytext=(x + w * 0.15, y + h * 0.15),
+                         arrowprops=dict(arrowstyle='->', color=zone_colors[zone_id], lw=2),
+                         bbox=dict(boxstyle="round,pad=0.3", facecolor='white', edgecolor=zone_colors[zone_id],
+                                   alpha=0.9),
+                         fontsize=10, ha='center', weight='bold')
+
+    ax1.set_title(f'{title}\nAbsolute Pearson Correlation |R| with GCI Zones', fontsize=12, weight='bold')
+    ax1.set_xlabel('X (m)', fontsize=10)
+    ax1.set_ylabel('Y (m)', fontsize=10)
+
+    # Add colorbar for correlation
+    cbar1 = plt.colorbar(im1, ax=ax1, shrink=0.8)
+    cbar1.set_label('|Pearson Correlation|', fontsize=10)
+
+    # Add legend for thresholds
+    ax1.text(0.02, 0.98, f'Correlation threshold: |R| ≥ {corr_threshold:.3f}\nGCI threshold: {gci_median:.2f}',
+             transform=ax1.transAxes, fontsize=9, verticalalignment='top',
+             bbox=dict(boxstyle="round,pad=0.3", facecolor='white', alpha=0.8))
+
+    # Right panel: Zone classification map
+    zone_cmap = plt.cm.get_cmap('Set3', 4)
+    im2 = ax2.imshow(zones, cmap=zone_cmap, vmin=1, vmax=4, origin='lower')
+
+    ax2.set_title('Collinearity-GCI Zone Classification', fontsize=12, weight='bold')
+    ax2.set_xlabel('X (m)', fontsize=10)
+    ax2.set_ylabel('Y (m)', fontsize=10)
+
+    # Add colorbar for zones
+    cbar2 = plt.colorbar(im2, ax=ax2, shrink=0.8, ticks=[1, 2, 3, 4])
+    cbar2.set_label('Zone Type', fontsize=10)
+    cbar2.set_ticklabels(['High Col.\nHigh GCI', 'High Col.\nLow GCI',
+                          'Low Col.\nHigh GCI', 'Low Col.\nLow GCI'])
+
+    plt.tight_layout()
+    plt.savefig(save_path, dpi=300, bbox_inches='tight')
+    plt.close()
+
+    return zones, corr_threshold, gci_median
+
 
 def save_results(output_dir, geophys_data, planview_data):
     """Save all results including figures and data with enhanced lithology analysis."""
@@ -891,3 +1125,9 @@ def main():
 
 if __name__ == "__main__":
     main()
+
+
+
+
+
+

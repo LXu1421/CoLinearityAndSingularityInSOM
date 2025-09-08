@@ -3,6 +3,7 @@ import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 from scipy.ndimage import gaussian_filter
+from scipy.spatial import distance_matrix
 from sklearn.preprocessing import StandardScaler
 from sklearn.decomposition import PCA
 from matplotlib.patches import Ellipse
@@ -126,7 +127,6 @@ def process_victoria_rocks(input_dir):
     os.makedirs(output_dir, exist_ok=True)
 
     # Create mapping from rock types to category names
-    # (You'll need to define which rock types correspond to which categories)
     rock_type_to_category = {
         1: "Regional metamorphic",
         2: "Contact metamorphic",
@@ -208,6 +208,175 @@ def process_victoria_rocks(input_dir):
 
     print(f"PCA visualizations saved to: {output_dir}")
 
+    # Enhanced PCA analysis with more components
+    pca = PCA()  # No n_components specified - will compute all components
+    pca_result = pca.fit_transform(features_scaled)
+
+    # Create output directory
+    output_dir = os.path.join(input_dir, 'Enhanced_PCA_Results')
+    os.makedirs(output_dir, exist_ok=True)
+
+    # 1. Save variance explained information
+    variance_table = pd.DataFrame({
+        'Principal Component': [f'PC{i + 1}' for i in range(len(pca.explained_variance_ratio_))],
+        'Variance Explained': pca.explained_variance_ratio_,
+        'Cumulative Variance': np.cumsum(pca.explained_variance_ratio_)
+    })
+    variance_table.to_csv(os.path.join(output_dir, 'variance_explained.csv'), index=False)
+
+    # 2. Create scree plot
+    plt.figure(figsize=(10, 6))
+    plt.plot(range(1, len(pca.explained_variance_ratio_) + 1),
+             pca.explained_variance_ratio_, 'o-', label='Individual')
+    plt.plot(range(1, len(pca.explained_variance_ratio_) + 1),
+             np.cumsum(pca.explained_variance_ratio_), 's-', label='Cumulative')
+    plt.axhline(y=0.05, color='r', linestyle='--', label='5% threshold')
+    plt.xlabel('Principal Component')
+    plt.ylabel('Explained Variance Ratio')
+    plt.title('Scree Plot of Explained Variance')
+    plt.legend()
+    plt.grid(True, alpha=0.3)
+    plt.tight_layout()
+    plt.savefig(os.path.join(output_dir, 'scree_plot.png'), dpi=300)
+    plt.close()
+
+    # 3. Enhanced 2D PCA plots (existing functionality but with more components)
+    significant_pcs = [i for i, var in enumerate(pca.explained_variance_ratio_)
+                       if var > 0.05]  # Components explaining >5% variance
+
+    # Generate all possible pairs of significant PCs
+    from itertools import combinations
+    pc_pairs = list(combinations(significant_pcs, 2))
+
+    for pc1, pc2 in pc_pairs:
+        plt.figure(figsize=(12, 8))
+        for i, rock_type in enumerate(unique_rock_types):
+            if rock_type == 0:
+                continue
+
+            mask = (rock_types == rock_type)
+            color = Bcolor[i % len(Bcolor)]
+            category = rock_type_to_category.get(rock_type, f"Unknown Type {rock_type}")
+
+            plt.scatter(pca_result[mask, pc1], pca_result[mask, pc2],
+                        color=color, label=f'{rock_type} {category}',
+                        alpha=0.6, s=30)
+
+        plt.xlabel(f'PC{pc1 + 1} (%.2f%%)' % (pca.explained_variance_ratio_[pc1] * 100))
+        plt.ylabel(f'PC{pc2 + 1} (%.2f%%)' % (pca.explained_variance_ratio_[pc2] * 100))
+        plt.title(f'PCA of Victoria Rock Samples (PC{pc1 + 1}-PC{pc2 + 1})')
+        plt.legend(bbox_to_anchor=(1.05, 1), loc='upper left', fontsize=9)
+        plt.grid(True, alpha=0.3)
+        plt.tight_layout()
+        plt.savefig(os.path.join(output_dir, f'PCA_PC{pc1 + 1}_PC{pc2 + 1}.png'),
+                    dpi=300, bbox_inches='tight')
+        plt.close()
+
+    # 4. 3D PCA plot if we have at least 3 significant components
+    if len(significant_pcs) >= 3:
+        pc1, pc2, pc3 = significant_pcs[:3]
+
+        fig = plt.figure(figsize=(12, 10))
+        ax = fig.add_subplot(111, projection='3d')
+
+        for i, rock_type in enumerate(unique_rock_types):
+            if rock_type == 0:
+                continue
+
+            mask = (rock_types == rock_type)
+            color = Bcolor[i % len(Bcolor)]
+            category = rock_type_to_category.get(rock_type, f"Unknown Type {rock_type}")
+
+            ax.scatter(pca_result[mask, pc1], pca_result[mask, pc2], pca_result[mask, pc3],
+                       color=color, label=f'{rock_type} {category}',
+                       alpha=0.6, s=30)
+
+        ax.set_xlabel(f'PC{pc1 + 1} (%.2f%%)' % (pca.explained_variance_ratio_[pc1] * 100))
+        ax.set_ylabel(f'PC{pc2 + 1} (%.2f%%)' % (pca.explained_variance_ratio_[pc2] * 100))
+        ax.set_zlabel(f'PC{pc3 + 1} (%.2f%%)' % (pca.explained_variance_ratio_[pc3] * 100))
+        ax.set_title('3D PCA of Victoria Rock Samples')
+        ax.legend(bbox_to_anchor=(1.2, 1), loc='upper left', fontsize=9)
+        plt.tight_layout()
+        plt.savefig(os.path.join(output_dir, '3D_PCA_Plot.png'),
+                    dpi=300, bbox_inches='tight')
+        plt.close()
+
+    # 5. Quantitative cluster separation metrics
+    separation_metrics = []
+    for i, rock_type in enumerate(unique_rock_types):
+        if rock_type == 0:
+            continue
+
+        mask = (rock_types == rock_type)
+        if np.sum(mask) == 0:
+            continue
+
+        category = rock_type_to_category.get(rock_type, f"Type {rock_type}")
+        pca_data = pca_result[mask][:, significant_pcs]  # Only significant PCs
+
+        # Calculate statistics for each significant PC
+        pc_stats = {}
+        for j, pc in enumerate(significant_pcs):
+            pc_data = pca_result[mask, pc]
+            pc_stats[f'PC{pc + 1}_mean'] = np.mean(pc_data)
+            pc_stats[f'PC{pc + 1}_std'] = np.std(pc_data)
+            pc_stats[f'PC{pc + 1}_min'] = np.min(pc_data)
+            pc_stats[f'PC{pc + 1}_max'] = np.max(pc_data)
+
+        # Calculate pairwise distances between samples (memory efficient)
+        n_samples = len(pca_data)
+        sample_size = min(100, n_samples)  # Use subset for large datasets
+        idx = np.random.choice(n_samples, sample_size, replace=False)
+        dist_matrix = distance_matrix(pca_data[idx], pca_data[idx])
+        np.fill_diagonal(dist_matrix, np.nan)  # Ignore self-distances
+
+        separation_metrics.append({
+            'Rock_Type': rock_type,
+            'Category': category,
+            'N_Samples': n_samples,
+            'Mean_Intra_Distance': np.nanmean(dist_matrix),
+            'Std_Intra_Distance': np.nanstd(dist_matrix),
+            **pc_stats
+        })
+
+    # Calculate inter-class distances (between rock types)
+    if len(separation_metrics) > 1:
+        rock_type_pairs = list(combinations(range(len(separation_metrics)), 2))
+        inter_distances = []
+
+        for (i, j) in rock_type_pairs:
+            mask_i = (rock_types == unique_rock_types[i + 1])  # Skip 0
+            mask_j = (rock_types == unique_rock_types[j + 1])
+
+            # Sample subsets if large
+            sample_i = pca_result[mask_i][:, significant_pcs]
+            sample_j = pca_result[mask_j][:, significant_pcs]
+
+            if len(sample_i) > 100:
+                sample_i = sample_i[np.random.choice(len(sample_i), 100, replace=False)]
+            if len(sample_j) > 100:
+                sample_j = sample_j[np.random.choice(len(sample_j), 100, replace=False)]
+
+            dist = distance_matrix(sample_i, sample_j)
+            inter_distances.append({
+                'Type_A': separation_metrics[i]['Rock_Type'],
+                'Type_B': separation_metrics[j]['Rock_Type'],
+                'Category_A': separation_metrics[i]['Category'],
+                'Category_B': separation_metrics[j]['Category'],
+                'Mean_Distance': np.mean(dist),
+                'Std_Distance': np.std(dist),
+                'Min_Distance': np.min(dist),
+                'Max_Distance': np.max(dist)
+            })
+
+        # Save inter-class distances
+        inter_distance_df = pd.DataFrame(inter_distances)
+        inter_distance_df.to_csv(os.path.join(output_dir, 'inter_class_distances.csv'), index=False)
+
+    # Save intra-class metrics
+    separation_df = pd.DataFrame(separation_metrics)
+    separation_df.to_csv(os.path.join(output_dir, 'intra_class_metrics.csv'), index=False)
+
     # New analysis: Spatial vs PCA distance correlation (memory-efficient version)
     def efficient_spatial_pca_analysis(coords, pca_result, rock_types, output_dir):
             """Analyze spatial-PCA relationships without full distance matrices"""
@@ -218,6 +387,7 @@ def process_victoria_rocks(input_dir):
             unique_types = np.unique(rock_types)
             n_types = len(unique_types)-1
             cols = 4
+            rows = int(np.ceil(n_types / cols))
             rows = int(np.ceil(n_types / cols))
 
             fig, axes = plt.subplots(rows, cols, figsize=(28, 5 * rows))

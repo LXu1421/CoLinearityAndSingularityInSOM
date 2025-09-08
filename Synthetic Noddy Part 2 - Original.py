@@ -649,7 +649,7 @@ def run_som_experiments(geophys_data, planview_data, output_dir):
         results = {}
         accuracy_rows = []
         for name, data_dict in datasets.items():
-            results[name] = run_som(data_dict['data'], pv_labels, som_shape=(6, 6))
+            results[name] = run_som(data_dict['data'], pv_labels, som_shape=(7, 7))
 
             dominant_lith_map = np.zeros_like(results[name]['cluster_map'])
             for cluster, summary in results[name]['cluster_summary'].items():
@@ -1137,8 +1137,7 @@ def main():
         if os.path.exists(pv_file):
             planview_data[f"Q{i:03d}-PlanView.bmp"] = np.load(pv_file)
 
-    #run_som_experiments(geophys_data, planview_data, output_dir)
-    run_som_experiments_enhanced(geophys_data, planview_data, output_dir)
+    run_som_experiments(geophys_data, planview_data, output_dir)
 
 if __name__ == "__main__":
     main()

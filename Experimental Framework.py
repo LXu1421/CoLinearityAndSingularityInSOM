@@ -22,13 +22,12 @@ plt.rcParams['savefig.dpi'] = 300
 
 
 ## Model 1: Spherical Clusters with Noise and Collinear Features
-def generate_spherical_clusters(n_samples=1000):
-    # Generate two more distinct spherical clusters
-    cluster_center1 = np.array([-1, -1])  # Cluster 1 center
-    cluster_center2 = np.array([1, 1])  # Cluster 2 center (increased distance)
-    cluster_std = 0.4  # Reduced from 0.5 to make clusters more compact
+def generate_spherical_clusters(n_samples=1000, cluster_distance=2.0, cluster_std=0.4):
+    # Separate clusters ONLY along PC1 (keep PC2 centers at 0)
+    cluster_center1 = np.array([-cluster_distance / 2, 0])  # Only PC1 varies
+    cluster_center2 = np.array([cluster_distance / 2, 0])   # PC2 center = 0 for both
 
-    # Generate clusters with reduced variance
+    # Generate clusters (unchanged)
     cluster1 = np.random.randn(n_samples // 2, 2) * cluster_std + cluster_center1
     cluster2 = np.random.randn(n_samples // 2, 2) * cluster_std + cluster_center2
 
@@ -39,15 +38,13 @@ def generate_spherical_clusters(n_samples=1000):
     X = np.vstack([cluster1, cluster2])
 
     # Add collinear feature (PC1b is a noisy version of PC1)
-    PC1b = X[:, 0] + np.random.normal(0, 0.02, n_samples)  # Reduced noise from 0.1 to 0.05
+    PC1b = X[:, 0] + np.random.normal(0, 0.02, n_samples)
 
     # Add noise features
-    noise3 = np.random.randn(n_samples)
-    noise4 = np.random.randn(n_samples)
-    noise5 = np.random.randn(n_samples)
+    noise_features = np.random.randn(n_samples, 3)  # 3 noise features
 
     # Combine all features
-    X_extended = np.column_stack([X, PC1b, noise3, noise4, noise5])
+    X_extended = np.column_stack([X, PC1b, noise_features])
 
     return X, X_extended, labels
 
