@@ -1,0 +1,64 @@
+ENHANCED COLLINEARITY AND GCI ANALYSIS SUMMARY
+==================================================
+
+METHODOLOGY:
+- Collinearity measured using absolute Pearson correlation |R| in 5×5 moving windows
+- GCI calculated locally using lithology count and boundary length
+- Four zones classified based on correlation and GCI thresholds
+- Hotspots identified using 90th percentile threshold
+
+MODEL STATISTICS:
+
+Q001:
+  Global GCI: 0.512
+  Mean |R|: 0.057
+  Correlation threshold: 0.230
+  Zone 1 (High Col./High GCI): 10.0%
+  Zone 2 (High Col./Low GCI): 0.0%
+  Zone 3 (Low Col./High GCI): 90.0%
+  Zone 4 (Low Col./Low GCI): 0.0%
+
+Q002:
+  Global GCI: 0.550
+  Mean |R|: 0.069
+  Correlation threshold: 0.312
+  Zone 1 (High Col./High GCI): 7.6%
+  Zone 2 (High Col./Low GCI): 2.4%
+  Zone 3 (Low Col./High GCI): 47.6%
+  Zone 4 (Low Col./Low GCI): 42.4%
+
+Q003:
+  Global GCI: 0.550
+  Mean |R|: 0.044
+  Correlation threshold: 0.000
+  Zone 1 (High Col./High GCI): 100.0%
+  Zone 2 (High Col./Low GCI): 0.0%
+  Zone 3 (Low Col./High GCI): 0.0%
+  Zone 4 (Low Col./Low GCI): 0.0%
+
+Q004:
+  Global GCI: 0.613
+  Mean |R|: 0.102
+  Correlation threshold: 0.531
+  Zone 1 (High Col./High GCI): 9.6%
+  Zone 2 (High Col./Low GCI): 0.4%
+  Zone 3 (Low Col./High GCI): 44.4%
+  Zone 4 (Low Col./Low GCI): 45.6%
+
+Q005:
+  Global GCI: 0.675
+  Mean |R|: 0.044
+  Correlation threshold: 0.000
+  Zone 1 (High Col./High GCI): 100.0%
+  Zone 2 (High Col./Low GCI): 0.0%
+  Zone 3 (Low Col./High GCI): 0.0%
+  Zone 4 (Low Col./Low GCI): 0.0%
+
+Q006:
+  Global GCI: 0.875
+  Mean |R|: 0.127
+  Correlation threshold: 0.601
+  Zone 1 (High Col./High GCI): 10.0%
+  Zone 2 (High Col./Low GCI): 0.0%
+  Zone 3 (Low Col./High GCI): 90.0%
+  Zone 4 (Low Col./Low GCI): 0.0%

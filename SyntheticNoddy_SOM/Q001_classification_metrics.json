@@ -1,0 +1,18 @@
+{
+  "adjusted_rand_score": 0.0,
+  "accuracy": 0.4857073098644941,
+  "per_class": {
+    "1": {
+      "accuracy": 1.0,
+      "pixel_count": 226785
+    },
+    "2": {
+      "accuracy": 0.0,
+      "pixel_count": 139715
+    },
+    "3": {
+      "accuracy": 0.0,
+      "pixel_count": 100417
+    }
+  }
+}
