@@ -1,0 +1,2 @@
+Merged to 6 clusters
+Original clusters: 560

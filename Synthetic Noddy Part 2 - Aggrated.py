@@ -359,16 +359,16 @@ def calculate_metrics(true_labels, predicted_labels, features):
 
 
 def create_high_dpi_figures(final_labels, lithology_map, geophys_data, q_number, output_dir, dpi=300):
-    """Create high-resolution figures at 300+ DPI."""
+    """Create high-resolution figures at 300+ DPI with improved visualization."""
     lith_mapping = lithology_mappings.get(q_number, {})
 
     # Create figure directory
     fig_dir = os.path.join(output_dir, "High_DPI_Figures")
     os.makedirs(fig_dir, exist_ok=True)
 
-    # Set up the plot
-    fig, axes = plt.subplots(2, 3, figsize=(18, 12))
-    fig.suptitle(f'Lithology Classification Results - {q_number}', fontsize=16, fontweight='bold')
+    # Create a larger figure to accommodate all subplots
+    fig, axes = plt.subplots(2, 3, figsize=(20, 14))
+    fig.suptitle(f'Lithology Classification Results - {q_number}', fontsize=20, fontweight='bold')
 
     # Common settings for all subplots
     for ax in axes.flat:
@@ -378,18 +378,47 @@ def create_high_dpi_figures(final_labels, lithology_map, geophys_data, q_number,
         ax.set_ylim(-0.5, lithology_map.shape[0] - 0.5)  # Y increases upwards
         ax.set_aspect('equal')  # Optional: keep square pixels
 
+    # Get unique lithology IDs for consistent coloring
+    unique_lithologies = np.unique(lithology_map)
+    unique_lithologies = unique_lithologies[unique_lithologies > 0]  # Remove background if any
+
+    # Create a colormap with enough distinct colors
+    n_colors = max(len(unique_lithologies), len(np.unique(final_labels)))
+    cmap = plt.cm.get_cmap('tab20', n_colors)
+
     # Original lithology map
-    im1 = axes[0, 0].imshow(lithology_map, cmap='tab10', interpolation='nearest')
-    axes[0, 0].set_title('Original Lithology Map')
+    im1 = axes[0, 0].imshow(lithology_map, cmap=cmap, interpolation='nearest',
+                            vmin=0, vmax=n_colors - 1)
+    axes[0, 0].set_title('Original Lithology Map', fontsize=14, pad=10)
+    axes[0, 0].set_xticks(range(0, lithology_map.shape[1], 100))
+    axes[0, 0].set_yticks(range(0, lithology_map.shape[0], 100))
 
-    # Final classified map
-    im2 = axes[0, 1].imshow(final_labels, cmap='tab10', interpolation='nearest')
-    axes[0, 1].set_title('SOM Classification Result')
+    # Final classified map - ensure we use the same colormap range
+    im2 = axes[0, 1].imshow(final_labels, cmap=cmap, interpolation='nearest',
+                            vmin=0, vmax=n_colors - 1)
+    axes[0, 1].set_title('SOM Classification Result', fontsize=14, pad=10)
+    axes[0, 1].set_xticks(range(0, final_labels.shape[1], 100))
+    axes[0, 1].set_yticks(range(0, final_labels.shape[0], 100))
 
-    # Difference map
-    diff = (lithology_map != final_labels).astype(int)
-    im3 = axes[0, 2].imshow(diff, cmap='RdYlBu_r', interpolation='nearest')
-    axes[0, 2].set_title('Classification Differences')
+    # Enhanced difference map - show specific misclassifications
+    diff_map = np.zeros_like(lithology_map, dtype=float)
+
+    # Create a more detailed difference representation
+    for i in range(lithology_map.shape[0]):
+        for j in range(lithology_map.shape[1]):
+            if lithology_map[i, j] != final_labels[i, j]:
+                # Encode both true and predicted values in the difference map
+                # Use a formula that creates unique values for each (true, predicted) pair
+                diff_map[i, j] = lithology_map[i, j] * 10 + final_labels[i, j]
+            else:
+                diff_map[i, j] = 0  # No difference
+
+    # Create a custom colormap for the difference visualization
+    diff_cmap = plt.cm.get_cmap('viridis', 20)
+    im3 = axes[0, 2].imshow(diff_map, cmap=diff_cmap, interpolation='nearest')
+    axes[0, 2].set_title('Detailed Classification Differences', fontsize=14, pad=10)
+    axes[0, 2].set_xticks(range(0, diff_map.shape[1], 100))
+    axes[0, 2].set_yticks(range(0, diff_map.shape[0], 100))
 
     # Geophysical data
     grav_key = f"{q_number}-Grav.bmp"
@@ -397,30 +426,45 @@ def create_high_dpi_figures(final_labels, lithology_map, geophys_data, q_number,
 
     if grav_key in geophys_data:
         im4 = axes[1, 0].imshow(geophys_data[grav_key]['raw'], cmap='RdBu_r')
-        axes[1, 0].set_title('Gravity Data')
-        #axes[1, 0].axis('off')
+        axes[1, 0].set_title('Gravity Data', fontsize=14, pad=10)
+        axes[1, 0].set_xticks(range(0, geophys_data[grav_key]['raw'].shape[1], 100))
+        axes[1, 0].set_yticks(range(0, geophys_data[grav_key]['raw'].shape[0], 100))
         plt.colorbar(im4, ax=axes[1, 0], shrink=0.8)
 
     if mag_key in geophys_data:
         im5 = axes[1, 1].imshow(geophys_data[mag_key]['raw'], cmap='RdBu_r')
-        axes[1, 1].set_title('Magnetic Data')
-        #axes[1, 1].axis('off')
+        axes[1, 1].set_title('Magnetic Data', fontsize=14, pad=10)
+        axes[1, 1].set_xticks(range(0, geophys_data[mag_key]['raw'].shape[1], 100))
+        axes[1, 1].set_yticks(range(0, geophys_data[mag_key]['raw'].shape[0], 100))
         plt.colorbar(im5, ax=axes[1, 1], shrink=0.8)
 
     # Legend for lithology
-    unique_labels = np.unique(final_labels[final_labels > 0])
-    legend_text = []
-    for label in unique_labels:
-        name = lith_mapping.get(int(label), f'Class_{label}')
-        count = np.sum(final_labels == label)
-        legend_text.append(f'{label}: {name} ({count} pixels)')
+    axes[1, 2].axis('off')  # Turn off the axis for the legend
+    legend_elements = []
+    for lith_id in unique_lithologies:
+        name = lith_mapping.get(int(lith_id), f'Class_{lith_id}')
+        color = cmap(lith_id / (n_colors - 1) if n_colors > 1 else 0.5)
+        legend_elements.append(plt.Rectangle((0, 0), 1, 1, facecolor=color,
+                                             edgecolor='black', label=f'{lith_id}: {name}'))
 
-    axes[1, 2].text(0.1, 0.9, '\n'.join(legend_text), transform=axes[1, 2].transAxes,
-                    verticalalignment='top', fontsize=10)
-    axes[1, 2].set_title('Classification Legend')
-    axes[1, 2].axis('off')
+    axes[1, 2].legend(handles=legend_elements, loc='center',
+                      title='Lithology Legend', fontsize=10,
+                      title_fontsize=12, framealpha=1)
 
-    plt.tight_layout()
+    # Add colorbars for the first row
+    fig.colorbar(im1, ax=axes[0, 0], shrink=0.8, label='Lithology ID')
+    fig.colorbar(im2, ax=axes[0, 1], shrink=0.8, label='Predicted Lithology ID')
+
+    # For the difference map, create a custom colorbar with meaningful labels
+    diff_cbar = fig.colorbar(im3, ax=axes[0, 2], shrink=0.8)
+    diff_cbar.set_label('Difference Encoding (True*10 + Predicted)', rotation=270, labelpad=20)
+
+    # Add some informative text about the difference encoding
+    fig.text(0.5, 0.01,
+             'Difference Map: 0 = Correct, Other values = True_Lithology*10 + Predicted_Lithology',
+             ha='center', fontsize=12, style='italic')
+
+    plt.tight_layout(rect=[0, 0.03, 1, 0.95])  # Adjust layout to accommodate suptitle and text
 
     # Save at high DPI
     output_path = os.path.join(fig_dir, f'{q_number}_som_classification_results_{dpi}dpi.png')
@@ -429,7 +473,78 @@ def create_high_dpi_figures(final_labels, lithology_map, geophys_data, q_number,
 
     print(f"High-DPI figure saved: {output_path}")
 
+    # Also create a separate detailed difference analysis figure
+    create_detailed_difference_analysis(lithology_map, final_labels, q_number, output_dir, dpi)
+
     return output_path
+
+
+def create_detailed_difference_analysis(true_labels, pred_labels, q_number, output_dir, dpi=300):
+    """Create a detailed analysis of classification differences."""
+    fig_dir = os.path.join(output_dir, "High_DPI_Figures")
+
+    # Create a confusion matrix style visualization
+    unique_true = np.unique(true_labels)
+    unique_pred = np.unique(pred_labels)
+
+    # Create a matrix to count occurrences of each (true, pred) pair
+    confusion_matrix = np.zeros((len(unique_true), len(unique_pred)))
+
+    for i, true_id in enumerate(unique_true):
+        for j, pred_id in enumerate(unique_pred):
+            confusion_matrix[i, j] = np.sum((true_labels == true_id) & (pred_labels == pred_id))
+
+    # Normalize by row to show percentage of each true class that was classified as each predicted class
+    row_sums = confusion_matrix.sum(axis=1, keepdims=True)
+    confusion_matrix_norm = confusion_matrix / row_sums
+
+    # Create the figure
+    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(16, 8))
+    fig.suptitle(f'Detailed Classification Analysis - {q_number}', fontsize=16, fontweight='bold')
+
+    # Plot raw counts
+    im1 = ax1.imshow(confusion_matrix, cmap='viridis', aspect='auto')
+    ax1.set_title('Confusion Matrix (Counts)')
+    ax1.set_xlabel('Predicted Lithology')
+    ax1.set_ylabel('True Lithology')
+    ax1.set_xticks(range(len(unique_pred)))
+    ax1.set_yticks(range(len(unique_true)))
+    ax1.set_xticklabels(unique_pred)
+    ax1.set_yticklabels(unique_true)
+    plt.colorbar(im1, ax=ax1, shrink=0.8)
+
+    # Add text annotations
+    for i in range(len(unique_true)):
+        for j in range(len(unique_pred)):
+            ax1.text(j, i, f'{int(confusion_matrix[i, j])}',
+                     ha='center', va='center',
+                     color='white' if confusion_matrix[i, j] > np.max(confusion_matrix) / 2 else 'black')
+
+    # Plot normalized percentages
+    im2 = ax2.imshow(confusion_matrix_norm, cmap='viridis', aspect='auto', vmin=0, vmax=1)
+    ax2.set_title('Confusion Matrix (Normalized by True Class)')
+    ax2.set_xlabel('Predicted Lithology')
+    ax2.set_ylabel('True Lithology')
+    ax2.set_xticks(range(len(unique_pred)))
+    ax2.set_yticks(range(len(unique_true)))
+    ax2.set_xticklabels(unique_pred)
+    ax2.set_yticklabels(unique_true)
+    plt.colorbar(im2, ax=ax2, shrink=0.8)
+
+    # Add text annotations
+    for i in range(len(unique_true)):
+        for j in range(len(unique_pred)):
+            ax2.text(j, i, f'{confusion_matrix_norm[i, j]:.2f}',
+                     ha='center', va='center', color='white' if confusion_matrix_norm[i, j] > 0.5 else 'black')
+
+    plt.tight_layout(rect=[0, 0, 1, 0.95])
+
+    # Save the detailed analysis figure
+    analysis_path = os.path.join(fig_dir, f'{q_number}_detailed_difference_analysis_{dpi}dpi.png')
+    plt.savefig(analysis_path, dpi=dpi, bbox_inches='tight', facecolor='white')
+    plt.close()
+
+    print(f"Detailed difference analysis saved: {analysis_path}")
 
 
 def process_single_model_with_som(q_number, geophys_data, planview_data, output_dir):
