@@ -10,8 +10,8 @@ Extra IDs: set()
 
 ID 1: Intermediate intrusive
   True pixels: 171611
-  Pred pixels: 303389
-  F1 score: 0.7136
+  Pred pixels: 362427
+  F1 score: 0.6311
 
 ID 2: Chert
   True pixels: 37820
@@ -20,21 +20,21 @@ ID 2: Chert
 
 ID 3: Sedimentary cover
   True pixels: 313563
-  Pred pixels: 350979
-  F1 score: 0.6891
+  Pred pixels: 184112
+  F1 score: 0.6291
 
 ID 4: Carbonaceous rock
   True pixels: 107295
-  Pred pixels: 0
-  F1 score: 0.0000
+  Pred pixels: 71576
+  F1 score: 0.3074
 
 ID 5: Pelitic sediment
   True pixels: 228685
-  Pred pixels: 244906
-  F1 score: 0.4815
+  Pred pixels: 293369
+  F1 score: 0.5407
 
 ID 6: Psammitic sediment
   True pixels: 165166
-  Pred pixels: 124866
-  F1 score: 0.4420
+  Pred pixels: 112656
+  F1 score: 0.4452
 

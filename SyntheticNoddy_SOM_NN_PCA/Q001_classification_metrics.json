@@ -1,0 +1,23 @@
+{
+  "adjusted_rand_score": 0.4200869331533051,
+  "silhouette_score": 0.09135156861562935,
+  "accuracy": 0.6964760677251157,
+  "per_class": {
+    "1": {
+      "accuracy": 0.9112958366758013,
+      "pixel_count": 557223
+    },
+    "2": {
+      "accuracy": 0.7534404832771127,
+      "pixel_count": 226785
+    },
+    "3": {
+      "accuracy": 0.24782593136026912,
+      "pixel_count": 139715
+    },
+    "4": {
+      "accuracy": 0.0,
+      "pixel_count": 100417
+    }
+  }
+}

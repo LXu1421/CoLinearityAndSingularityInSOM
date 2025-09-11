@@ -10,13 +10,13 @@ Extra IDs: set()
 
 ID 1: Mafic volcanic
   True pixels: 233792
-  Pred pixels: 194620
-  F1 score: 0.5649
+  Pred pixels: 346217
+  F1 score: 0.6022
 
 ID 2: Sedimentary cover
   True pixels: 313563
-  Pred pixels: 495704
-  F1 score: 0.7369
+  Pred pixels: 425689
+  F1 score: 0.8130
 
 ID 3: Psammitic sediment
   True pixels: 28658
@@ -25,11 +25,11 @@ ID 3: Psammitic sediment
 
 ID 4: Felsic intrusive
   True pixels: 105885
-  Pred pixels: 175827
-  F1 score: 0.6189
+  Pred pixels: 0
+  F1 score: 0.0000
 
 ID 5: Pelitic sediment
   True pixels: 342242
-  Pred pixels: 157989
-  F1 score: 0.5278
+  Pred pixels: 252234
+  F1 score: 0.4955
 

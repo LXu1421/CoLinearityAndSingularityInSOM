@@ -1,0 +1,5 @@
+cluster_id,lithology_id,lithology_name,pixels,confidence
+1,4,Pelitic sediment,167538,0.7184758084733016
+2,1,Sedimentary cover,119049,0.975766281111139
+3,2,Psammitic sediment,295682,0.3651558092815931
+4,1,Sedimentary cover,441871,0.43353150580146693

@@ -1,0 +1,7 @@
+cluster_id,lithology_id,lithology_name,pixels,confidence
+1,5,Pelitic sediment,235324,0.4731476602471486
+2,1,Intermediate intrusive,284680,0.5927321905297176
+3,5,Pelitic sediment,120317,0.43249083670636734
+4,3,Sedimentary cover,187050,0.7821438118150227
+5,6,Psammitic sediment,119167,0.6065857158441514
+6,3,Sedimentary cover,77602,0.696902141697379

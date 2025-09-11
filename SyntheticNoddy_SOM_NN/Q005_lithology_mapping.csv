@@ -1,7 +1,7 @@
 cluster_id,lithology_id,lithology_name,pixels,confidence
-1,5,Pelitic sediment,244906,0.46557863016830947
-2,3,Sedimentary cover,112189,0.40251718082878
-3,1,Intermediate intrusive,303389,0.5585996855522118
-4,3,Sedimentary cover,164244,0.772570078663452
-5,6,Psammitic sediment,124866,0.5133262857783544
-6,3,Sedimentary cover,74546,0.7636090467630725
+1,1,Intermediate intrusive,362427,0.4649322484252001
+2,4,Carbonaceous rock,71576,0.38410919861406057
+3,5,Pelitic sediment,293369,0.48106650668611883
+4,6,Psammitic sediment,112656,0.5489543388723193
+5,3,Sedimentary cover,133244,0.9164240040827354
+6,3,Sedimentary cover,50868,0.6768105685303137

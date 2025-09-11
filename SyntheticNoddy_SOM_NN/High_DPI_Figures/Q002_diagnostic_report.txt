@@ -15,8 +15,8 @@ ID 1: Metamorphic rocks
 
 ID 2: Sedimentary cover
   True pixels: 228894
-  Pred pixels: 153480
-  F1 score: 0.6625
+  Pred pixels: 104080
+  F1 score: 0.5860
 
 ID 3: Psammitic sediment
   True pixels: 152906
@@ -25,6 +25,6 @@ ID 3: Psammitic sediment
 
 ID 4: Pelitic sediment
   True pixels: 484285
-  Pred pixels: 870660
-  F1 score: 0.6966
+  Pred pixels: 920060
+  F1 score: 0.6891
 

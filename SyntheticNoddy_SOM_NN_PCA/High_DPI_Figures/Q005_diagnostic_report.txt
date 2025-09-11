@@ -1,0 +1,40 @@
+Diagnostic Report for Q005
+==================================================
+
+Expected classes: 6
+Found classes: 6
+Expected IDs: [1, 2, 3, 4, 5, 6]
+Found IDs: [1, 2, 3, 4, 5, 6]
+Missing IDs: set()
+Extra IDs: set()
+
+ID 1: Intermediate intrusive
+  True pixels: 171611
+  Pred pixels: 284680
+  F1 score: 0.7396
+
+ID 2: Chert
+  True pixels: 37820
+  Pred pixels: 0
+  F1 score: 0.0000
+
+ID 3: Sedimentary cover
+  True pixels: 313563
+  Pred pixels: 264652
+  F1 score: 0.6931
+
+ID 4: Carbonaceous rock
+  True pixels: 107295
+  Pred pixels: 0
+  F1 score: 0.0000
+
+ID 5: Pelitic sediment
+  True pixels: 228685
+  Pred pixels: 355641
+  F1 score: 0.5592
+
+ID 6: Psammitic sediment
+  True pixels: 165166
+  Pred pixels: 119167
+  F1 score: 0.5085
+

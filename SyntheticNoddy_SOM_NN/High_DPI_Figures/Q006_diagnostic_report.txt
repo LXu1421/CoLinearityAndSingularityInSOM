@@ -15,13 +15,13 @@ ID 1: Chert
 
 ID 2: Carbonaceous rock
   True pixels: 111121
-  Pred pixels: 0
-  F1 score: 0.0000
+  Pred pixels: 237313
+  F1 score: 0.3987
 
 ID 3: Sedimentary cover
   True pixels: 468955
-  Pred pixels: 978694
-  F1 score: 0.6439
+  Pred pixels: 767485
+  F1 score: 0.6678
 
 ID 4: Psammitic sediment
   True pixels: 82168
@@ -30,8 +30,8 @@ ID 4: Psammitic sediment
 
 ID 5: Felsic intrusive
   True pixels: 122362
-  Pred pixels: 45446
-  F1 score: 0.3286
+  Pred pixels: 19342
+  F1 score: 0.1288
 
 ID 6: Pelitic sediment
   True pixels: 164513

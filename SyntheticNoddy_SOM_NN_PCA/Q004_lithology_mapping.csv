@@ -1,0 +1,6 @@
+cluster_id,lithology_id,lithology_name,pixels,confidence
+1,1,Mafic volcanic,205088,0.7647985255110001
+2,5,Pelitic sediment,244579,0.4717575916166147
+3,5,Pelitic sediment,110348,0.8960651756262007
+4,2,Sedimentary cover,286141,0.6047368255510395
+5,2,Sedimentary cover,177984,0.7184185095289464

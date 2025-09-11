@@ -10,21 +10,21 @@ Extra IDs: set()
 
 ID 1: Sedimentary cover
   True pixels: 557223
-  Pred pixels: 498014
-  F1 score: 0.8358
+  Pred pixels: 748288
+  F1 score: 0.7832
 
 ID 2: Psammitic sediment
   True pixels: 226785
-  Pred pixels: 389601
-  F1 score: 0.5556
-
-ID 3: Felsic intrusive
-  True pixels: 139715
   Pred pixels: 0
   F1 score: 0.0000
 
+ID 3: Felsic intrusive
+  True pixels: 139715
+  Pred pixels: 65145
+  F1 score: 0.3575
+
 ID 4: Pelitic sediment
   True pixels: 100417
-  Pred pixels: 136525
-  F1 score: 0.4978
+  Pred pixels: 210707
+  F1 score: 0.4745
 

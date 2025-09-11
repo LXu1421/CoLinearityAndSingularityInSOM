@@ -1,14 +1,14 @@
 {
-  "adjusted_rand_score": 0.28048429861876284,
-  "silhouette_score": 0.045072584590250174,
-  "accuracy": 0.623332747475931,
+  "adjusted_rand_score": 0.3569822766202424,
+  "silhouette_score": 0.20805583447954049,
+  "accuracy": 0.6077811627316578,
   "per_class": {
     "1": {
-      "accuracy": 0.5175797289898714,
+      "accuracy": 0.7470443813304134,
       "pixel_count": 233792
     },
     "2": {
-      "accuracy": 0.95096360221072,
+      "accuracy": 0.9583847584058068,
       "pixel_count": 313563
     },
     "3": {
@@ -16,11 +16,11 @@
       "pixel_count": 28658
     },
     "4": {
-      "accuracy": 0.8232799735562166,
+      "accuracy": 0.0,
       "pixel_count": 105885
     },
     "5": {
-      "accuracy": 0.38573290244914415,
+      "accuracy": 0.4303562975905938,
       "pixel_count": 342242
     }
   }

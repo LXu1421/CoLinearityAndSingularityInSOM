@@ -26,7 +26,8 @@ from sklearn.cluster import KMeans
 import tensorflow as tf
 from tensorflow import keras
 from sklearn.preprocessing import LabelEncoder, StandardScaler
-import textwrap
+import re
+from sklearn.decomposition import PCA
 
 
 warnings.filterwarnings('ignore')
@@ -438,26 +439,35 @@ def create_detailed_difference_analysis(true_labels, pred_labels, q_number, lith
     print(f"\nFinal lithology labels: {lithology_labels}")
     print(f"{'=' * 60}")
 
-    # Wrap long labels to fit better
-    def wrap_labels(labels, width=15):
-        return ['\n'.join(textwrap.wrap(label, width)) for label in labels]
-
-    wrapped_labels = wrap_labels(lithology_labels)
-
     # Create the figure with two subplots
-    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(22, 12))
+    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(26, 14))
     fig.suptitle(f'Detailed Classification Analysis - {q_number}\n'
                  f'({n_classes} classes analyzed)', fontsize=16, fontweight='bold')
 
+    # Manually break long labels into multiple lines
+    def break_labels(labels, max_len=12):
+        cleaned = []
+        for label in labels:
+            # Extract only the 'ID' followed by digits (e.g., 'ID2')
+            match = re.search(r'ID\d+', label)
+            short_label = match.group(0) if match else label  # fallback to original if no match
+            # Apply line breaking if needed
+            broken = '\n'.join([short_label[i:i + max_len] for i in range(0, len(short_label), max_len)])
+            cleaned.append(broken)
+        return cleaned
+
+    broken_labels = break_labels(lithology_labels)
+
     # Plot raw counts
-    im1 = ax1.imshow(confusion_matrix, cmap='turbo', aspect='auto')
+    im1 = ax1.imshow(confusion_matrix, cmap='turbo', aspect='equal')  # Changed to 'equal' for same scale
     ax1.set_title('Confusion Matrix (Counts)', fontsize=14)
     ax1.set_xlabel('Predicted Lithology', fontsize=12)
     ax1.set_ylabel('True Lithology', fontsize=12)
     ax1.set_xticks(range(n_classes))
     ax1.set_yticks(range(n_classes))
-    ax1.set_xticklabels(wrapped_labels, rotation=30, ha='right', fontsize=9)
-    ax1.set_yticklabels(wrapped_labels, fontsize=9)
+    ax1.set_xticklabels(broken_labels, rotation=0, ha='center', fontsize=12)
+    ax1.set_yticklabels(broken_labels, rotation=90, fontsize=12)
+    ax1.invert_yaxis()
 
     # Add colorbar for counts
     cbar1 = plt.colorbar(im1, ax=ax1, shrink=0.8)
@@ -468,19 +478,20 @@ def create_detailed_difference_analysis(true_labels, pred_labels, q_number, lith
         for j in range(n_classes):
             count = int(confusion_matrix[i, j])
             if count > 0:
-                color = 'white' if confusion_matrix[i, j] > np.max(confusion_matrix) / 2 else 'black'
+                color = 'white' if confusion_matrix[i, j] > np.max(confusion_matrix) / 2 else 'white'
                 ax1.text(j, i, str(count), ha='center', va='center',
                          color=color, fontsize=8, weight='bold')
 
     # Plot normalized percentages
-    im2 = ax2.imshow(confusion_matrix_norm, cmap='turbo', aspect='auto', vmin=0, vmax=1)
+    im2 = ax2.imshow(confusion_matrix_norm, cmap='turbo', aspect='equal', vmin=0, vmax=1)  # Changed to 'equal'
     ax2.set_title('Confusion Matrix (Normalized by True Class)', fontsize=14)
     ax2.set_xlabel('Predicted Lithology', fontsize=12)
     ax2.set_ylabel('True Lithology', fontsize=12)
     ax2.set_xticks(range(n_classes))
     ax2.set_yticks(range(n_classes))
-    ax2.set_xticklabels(wrapped_labels, rotation=30, ha='right', fontsize=9)
-    ax2.set_yticklabels(wrapped_labels, fontsize=9)
+    ax2.set_xticklabels(broken_labels, rotation=0, ha='center', fontsize=12)
+    ax2.set_yticklabels(broken_labels, rotation=90, fontsize=12)
+    ax2.invert_yaxis()
 
     # Add colorbar for percentages
     cbar2 = plt.colorbar(im2, ax=ax2, shrink=0.8)
@@ -495,7 +506,8 @@ def create_detailed_difference_analysis(true_labels, pred_labels, q_number, lith
                 ax2.text(j, i, f'{percentage:.2f}', ha='center', va='center',
                          color=color, fontsize=8, weight='bold')
 
-    plt.tight_layout(rect=[0, 0, 1, 0.95])
+    # Adjust layout with more space for labels
+    plt.subplots_adjust(bottom=0.45, top=0.9, wspace=0.1, left=0.2, right=0.95)
 
     # Save the detailed analysis figure
     analysis_path = os.path.join(fig_dir, f'{q_number}_detailed_difference_analysis_{dpi}dpi.png')
@@ -759,8 +771,7 @@ def prepare_features_for_som(geophys_data, q_number, nn_model=None, nn_scaler=No
 
     if mag_key in geophys_data:
         mag_data = geophys_data[mag_key]
-        features_list.extend([
-            mag_data['raw'].flatten(),
+        features_list.extend([mag_data['raw'].flatten(),
             mag_data['1VD'].flatten(),
             mag_data['tile'].flatten(),
             mag_data['analytical_signal'].flatten()

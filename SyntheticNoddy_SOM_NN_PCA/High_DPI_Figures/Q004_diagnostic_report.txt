@@ -1,0 +1,35 @@
+Diagnostic Report for Q004
+==================================================
+
+Expected classes: 5
+Found classes: 5
+Expected IDs: [1, 2, 3, 4, 5]
+Found IDs: [1, 2, 3, 4, 5]
+Missing IDs: set()
+Extra IDs: set()
+
+ID 1: Mafic volcanic
+  True pixels: 233792
+  Pred pixels: 205088
+  F1 score: 0.7148
+
+ID 2: Sedimentary cover
+  True pixels: 313563
+  Pred pixels: 464125
+  F1 score: 0.7739
+
+ID 3: Psammitic sediment
+  True pixels: 28658
+  Pred pixels: 0
+  F1 score: 0.0000
+
+ID 4: Felsic intrusive
+  True pixels: 105885
+  Pred pixels: 0
+  F1 score: 0.0000
+
+ID 5: Pelitic sediment
+  True pixels: 342242
+  Pred pixels: 354927
+  F1 score: 0.6147
+
