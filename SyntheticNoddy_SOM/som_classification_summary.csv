@@ -1,7 +1,1 @@
-Q_Number,Accuracy,Adjusted_Rand_Score,Silhouette_Score,Total_Classes,Final_Labels_File,Mapping_File
-Q001,0.4857073098644941,0.0,-1,4,Q001_final_lithology_map.npz,Q001_lithology_mapping.csv
-Q002,0.26428583799511596,0.0,-1,4,Q002_final_lithology_map.npz,Q002_lithology_mapping.csv
-Q003,0.32152918081646104,0.0,-1,4,Q003_final_lithology_map.npz,Q003_lithology_mapping.csv
-Q004,0.39674042320598013,0.0,-1,5,Q004_final_lithology_map.npz,Q004_lithology_mapping.csv
-Q005,0.044362127270743866,0.0,-1,6,Q005_final_lithology_map.npz,Q005_lithology_mapping.csv
-Q006,0.11707804816888083,0.0,-1,6,Q006_final_lithology_map.npz,Q006_lithology_mapping.csv
+

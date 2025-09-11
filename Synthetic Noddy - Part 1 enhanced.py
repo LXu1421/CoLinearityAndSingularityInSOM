@@ -265,14 +265,52 @@ def plot_geophysics(data, title, filename):
     print(f"Saved: {filename} (Range: {vmin:.3f} to {vmax:.3f})")
 
 
-def expand_planview_to_geophysics_size(planview_data, target_shape=(845, 1212)):
-    """Expand planview data to match geophysics data size using nearest neighbor interpolation."""
+def rgb_to_lithology_id(rgb_array, q_number):
+    """Convert RGB values to lithology IDs based on the mapping for the specific Q model."""
+    if rgb_array.ndim != 3:
+        return rgb_array  # Already a lithology ID map
+
+    # Get the lithology mapping for this Q number
+    lith_mapping = lithology_mappings.get(q_number, {})
+
+    # Create a unique identifier for each RGB color
+    color_ids = (rgb_array[..., 0].astype(np.uint32) << 16 |
+                 rgb_array[..., 1].astype(np.uint32) << 8 |
+                 rgb_array[..., 2].astype(np.uint32))
+
+    # Get unique colors in the image
+    unique_colors = np.unique(color_ids)
+
+    # Create a mapping from color ID to lithology ID
+    color_to_lithology = {}
+    for i, color_id in enumerate(unique_colors):
+        if color_id == 0:  # Black background
+            color_to_lithology[color_id] = 0
+        else:
+            # Assign lithology IDs sequentially starting from 1
+            lithology_id = min(i, len(lith_mapping))
+            color_to_lithology[color_id] = lithology_id
+
+    # Apply the mapping
+    lithology_map = np.zeros_like(color_ids, dtype=np.uint8)
+    for color_id, lith_id in color_to_lithology.items():
+        lithology_map[color_ids == color_id] = lith_id
+
+    return lithology_map
+
+
+def expand_planview_to_geophysics_size(planview_data, target_shape=(845, 1212), q_number=None):
+    """Expand planview data to match geophysics data size and convert to lithology IDs."""
     if planview_data.ndim == 3:  # RGB image
         # Calculate zoom factors for each dimension
         zoom_factors = (target_shape[0] / planview_data.shape[0],
                         target_shape[1] / planview_data.shape[1], 1)
         expanded = zoom(planview_data, zoom_factors, order=0)  # order=0 for nearest neighbor
-    else:  # Grayscale image
+
+        # Convert RGB to lithology IDs
+        if q_number:
+            expanded = rgb_to_lithology_id(expanded, q_number)
+    else:  # Already lithology IDs or grayscale
         zoom_factors = (target_shape[0] / planview_data.shape[0],
                         target_shape[1] / planview_data.shape[1])
         expanded = zoom(planview_data, zoom_factors, order=0)
@@ -283,10 +321,6 @@ def expand_planview_to_geophysics_size(planview_data, target_shape=(845, 1212)):
     if expanded.shape[1] > target_shape[1]:
         expanded = expanded[:, :target_shape[1], ...]
 
-    # DEBUG: Check if expansion worked correctly
-    if expanded.shape[:2] != target_shape:
-        print(f"WARNING: Expanded data shape {expanded.shape} doesn't match target {target_shape}")
-
     return expanded
 
 
@@ -294,7 +328,13 @@ def plot_planview(data, title, filename, expanded=False, q_number=None):
     """Create and save planview figure with original colors and lithology legend."""
     fig, ax = plt.subplots(figsize=(10, 8))
 
-    # Get unique colors in the image
+    # Set extent based on whether data is expanded or not
+    if expanded:
+        extent = [0, 1212, 0, 845]  # Match geophysics extent
+    else:
+        extent = [0, data.shape[1], 0, data.shape[0]]
+
+    # Get unique colors/values for legend creation
     if data.ndim == 3:  # RGB image
         # Convert to uint32 for easier unique color identification
         color_data = (data[..., 0].astype(np.uint32) << 16) | \
@@ -302,22 +342,16 @@ def plot_planview(data, title, filename, expanded=False, q_number=None):
                      data[..., 2].astype(np.uint32)
         unique_colors = np.unique(color_data)
 
-        # Convert back to RGB tuples for plotting
+        # Convert back to RGB tuples for legend
         rgb_colors = []
         for color in unique_colors:
             r = (color >> 16) & 0xFF
             g = (color >> 8) & 0xFF
             b = color & 0xFF
             rgb_colors.append((r, g, b))
-    else:  # Grayscale image
-        unique_colors = np.unique(data)
+    else:  # Lithology ID map
+        unique_ids = np.unique(data)
         rgb_colors = None
-
-    # Set extent based on whether data is expanded or not
-    if expanded:
-        extent = [0, 1212, 0, 845]  # Match geophysics extent
-    else:
-        extent = [0, data.shape[1], 0, data.shape[0]]
 
     # Display the image
     if data.ndim == 3:  # RGB color data
@@ -327,48 +361,48 @@ def plot_planview(data, title, filename, expanded=False, q_number=None):
         else:
             plot_data = data
         im = ax.imshow(plot_data, extent=extent, aspect='equal', origin='lower')
-    else:
-        im = ax.imshow(data, cmap='gray', extent=extent, aspect='equal', origin='lower')
+    else:  # Lithology ID map
+        # Use a colormap for lithology IDs
+        cmap = plt.colormaps['tab10'].resampled(np.max(data) + 1)
+        im = ax.imshow(data, cmap=cmap, extent=extent, aspect='equal', origin='lower', vmin=0, vmax=np.max(data))
 
     ax.set_title(title, fontsize=14, pad=20)
     ax.set_xlabel('X Coordinate', fontsize=12)
     ax.set_ylabel('Y Coordinate', fontsize=12)
 
-    # Create lithology legend using the mapping dictionary
+    # Create lithology legend
     patches = []
     if q_number and q_number in lithology_mappings:
-        # For color images, we need to map colors to lithology IDs
-        if data.ndim == 3:
+        if data.ndim == 3:  # RGB image with lithology mapping
             # Create a mapping from color to lithology ID
             color_to_id = {}
             # This assumes the color values correspond to lithology IDs in order
-            # You may need to adjust this based on how your data is structured
             for i, color in enumerate(rgb_colors):
                 lith_id = i + 1  # Assuming lithology IDs start at 1
                 color_to_id[color] = lith_id
 
-            # Create legend patches with proper names
+            # Create legend patches with proper names using original colors
             for color in rgb_colors:
                 lith_id = color_to_id.get(color, 0)
                 lith_name = lithology_mappings[q_number].get(lith_id, f"Unknown {lith_id}")
-                patches.append(mpatches.Patch(color=np.array(color) / 255,
-                                              label=f"{lith_name} (ID: {lith_id})"))
-        else:
-            # For grayscale images, use the unique values directly
-            for value in unique_colors:
-                lith_id = int(value)
-                lith_name = lithology_mappings[q_number].get(lith_id, f"Unknown {lith_id}")
-                patches.append(mpatches.Patch(color=plt.cm.gray(value / 255),
-                                              label=f"{lith_name} (ID: {lith_id})"))
+                patches.append(mpatches.Patch(color=np.array(color) / 255, label=f"{lith_name} (ID: {lith_id})"))
+        else:  # Lithology ID map with mapping
+            lith_mapping = lithology_mappings[q_number]
+            cmap = plt.colormaps['tab10'].resampled(len(lith_mapping) + 1)
+
+            for lith_id, lith_name in lith_mapping.items():
+                color = cmap(lith_id)
+                patches.append(mpatches.Patch(color=color, label=f"{lith_name} (ID: {lith_id})"))
     else:
         # Fallback to generic legend if no mapping available
-        for i, color in enumerate(unique_colors if rgb_colors is None else rgb_colors):
-            if rgb_colors is not None:
-                patches.append(mpatches.Patch(color=np.array(color) / 255,
-                                              label=f'Lithology{i + 1:02d}'))
-            else:
-                patches.append(mpatches.Patch(color=plt.cm.gray(color / 255),
-                                              label=f'Lithology{i + 1:02d}'))
+        if data.ndim == 3:  # RGB image without mapping
+            for i, color in enumerate(rgb_colors):
+                patches.append(mpatches.Patch(color=np.array(color) / 255, label=f'Lithology{i + 1:02d}'))
+        else:  # Lithology ID map without mapping
+            cmap = plt.colormaps['tab10'].resampled(len(unique_ids))
+            for i, lith_id in enumerate(unique_ids):
+                color = cmap(i)
+                patches.append(mpatches.Patch(color=color, label=f'Lithology{lith_id:02d}'))
 
     ax.legend(handles=patches, bbox_to_anchor=(1.05, 1), loc='upper left', fontsize=9)
 
@@ -957,7 +991,7 @@ def plot_enhanced_collinearity_heatmap(corr_map, gci_map, global_gci, title, sav
              bbox=dict(boxstyle="round,pad=0.3", facecolor='white', alpha=0.8))
 
     # Right panel: Zone classification map
-    zone_cmap = plt.cm.get_cmap('Set3', 4)
+    zone_cmap = plt.colormaps['Set3'].resampled(4)
     im2 = ax2.imshow(zones, cmap=zone_cmap, vmin=1, vmax=4, origin='lower')
 
     ax2.set_title('Collinearity-GCI Zone Classification', fontsize=12, weight='bold')
@@ -999,8 +1033,8 @@ def save_results(output_dir, geophys_data, planview_data):
                       expanded=False,
                       q_number=q_number)
 
-        # Expand planview to match geophysics size
-        expanded_pv = expand_planview_to_geophysics_size(pv_data)
+        # Expand planview to match geophysics size and convert to lithology IDs
+        expanded_pv = expand_planview_to_geophysics_size(pv_data, q_number=q_number)
 
         # Save expanded figure
         fig_path = os.path.join(fig_dir, f"{base_name}_expanded.png")
@@ -1041,24 +1075,13 @@ def save_results(output_dir, geophys_data, planview_data):
             tmi = geophys_data[mag_key]['raw']
             gravity = geophys_data[grav_key]['raw']
 
-            # Convert RGB to single-channel lithology IDs if needed
-            if expanded_pv.ndim == 3:
-                lithology_map = (expanded_pv[..., 0].astype(np.uint32) << 16 |
-                                 (expanded_pv[..., 1].astype(np.uint32) << 8) |
-                                 expanded_pv[..., 2].astype(np.uint32))
-            else:
-                lithology_map = expanded_pv
-
-            # Get lithology mapping for this model
-            lith_mapping = lithology_mappings.get(q_number, {})
-
             # Generate lithology geophysics plot
             plot_lithology_geophysics(
                 q_number,
-                lithology_map,
+                expanded_pv,  # Use the lithology ID map
                 tmi,
                 gravity,
-                lith_mapping,
+                lithology_mappings.get(q_number, {}),
                 output_dir
             )
 

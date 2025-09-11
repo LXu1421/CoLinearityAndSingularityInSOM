@@ -1,0 +1,4 @@
+ID,Name,Precision,Recall,F1,True_Count,Pred_Count
+1,Sedimentary cover,0.22143945163747145,1.0,0.3625876851130164,226785,1024140
+2,Psammitic sediment,0.0,0.0,0.0,139715,0
+3,Felsic intrusive,0.0,0.0,0.0,100417,0

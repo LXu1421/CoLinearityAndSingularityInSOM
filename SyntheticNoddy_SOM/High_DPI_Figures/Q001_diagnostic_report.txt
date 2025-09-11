@@ -1,0 +1,30 @@
+Diagnostic Report for Q001
+==================================================
+
+Expected classes: 4
+Found classes: 4
+Expected IDs: [1, 2, 3, 4]
+Found IDs: [1, 2, 3, 4]
+Missing IDs: set()
+Extra IDs: set()
+
+ID 1: Sedimentary cover
+  True pixels: 226785
+  Pred pixels: 1024140
+  F1 score: 0.3626
+
+ID 2: Psammitic sediment
+  True pixels: 139715
+  Pred pixels: 0
+  F1 score: 0.0000
+
+ID 3: Felsic intrusive
+  True pixels: 100417
+  Pred pixels: 0
+  F1 score: 0.0000
+
+ID 4: Pelitic sediment
+  True pixels: 0
+  Pred pixels: 0
+  F1 score: 0.0000
+
