@@ -165,7 +165,6 @@ def create_high_dpi_figures(final_labels, lithology_map, geophys_data, q_number,
     # Common settings for all subplots
     for ax in axes.flat:
         ax.grid(True, color='gray', linestyle='--', linewidth=0.5)
-        ax.set_ylim(lithology_map.shape[0] - 0.5, -0.5)  # Y increases upwards
         ax.set_aspect('equal')  # Keep square pixels
 
     # Get unique lithology IDs for consistent coloring
@@ -193,29 +192,27 @@ def create_high_dpi_figures(final_labels, lithology_map, geophys_data, q_number,
             lithology_map_colored[lithology_map == lith_id] = color_index
             final_labels_colored[final_labels == lith_id] = color_index
 
-    # Original lithology map
+    # FIXED: Original lithology map - consistent y-axis upward
     im1 = axes[0, 0].imshow(lithology_map_colored, cmap=cmap, interpolation='nearest',
-                            vmin=0, vmax=n_colors - 1)
+                            vmin=0, vmax=n_colors - 1, origin='lower')
     axes[0, 0].set_title('Original Lithology Map', fontsize=14, pad=10)
     axes[0, 0].set_xticks(range(0, lithology_map.shape[1], 100))
     axes[0, 0].set_yticks(range(0, lithology_map.shape[0], 100))
     axes[0, 0].grid(True, color='lightgray', linestyle='--', linewidth=0.3)
-    # Flip y-axis so it increases upwards
-    axes[0, 0].set_ylim(lithology_map.shape[0] - 0.5, -0.5)
+    # REMOVED the ylim flip - let origin='lower' handle the orientation
     axes[0, 0].set_aspect('equal')
 
-    # Final classified map
+    # FIXED: Final classified map - consistent y-axis upward
     im2 = axes[0, 1].imshow(final_labels_colored, cmap=cmap, interpolation='nearest',
-                            vmin=0, vmax=n_colors - 1)
+                            vmin=0, vmax=n_colors - 1, origin='lower')
     axes[0, 1].set_title('SOM Classification Result', fontsize=14, pad=10)
     axes[0, 1].set_xticks(range(0, final_labels.shape[1], 100))
     axes[0, 1].set_yticks(range(0, final_labels.shape[0], 100))
     axes[0, 1].grid(True, color='lightgray', linestyle='--', linewidth=0.3)
-    # Flip y-axis so it increases upwards
-    axes[0, 1].set_ylim(lithology_map.shape[0] - 0.5, -0.5)
+    # REMOVED the ylim flip - let origin='lower' handle the orientation
     axes[0, 1].set_aspect('equal')
 
-    # Enhanced difference map - show specific misclassifications
+    # FIXED: Enhanced difference map - consistent y-axis upward
     diff_map = np.zeros_like(lithology_map, dtype=float)
 
     # Create a more detailed difference representation
@@ -230,34 +227,33 @@ def create_high_dpi_figures(final_labels, lithology_map, geophys_data, q_number,
 
     # Create a custom colormap for the difference visualization
     diff_cmap = plt.colormaps['viridis'].resampled(20)
-    im3 = axes[0, 2].imshow(diff_map, cmap=diff_cmap, interpolation='nearest')
+    im3 = axes[0, 2].imshow(diff_map, cmap=diff_cmap, interpolation='nearest', origin='lower')
     axes[0, 2].set_title('Detailed Classification Differences', fontsize=14, pad=10)
     axes[0, 2].set_xticks(range(0, diff_map.shape[1], 100))
     axes[0, 2].set_yticks(range(0, diff_map.shape[0], 100))
     axes[0, 2].grid(True, color='lightgray', linestyle='--', linewidth=0.3)
-    # Flip y-axis so it increases upwards
-    axes[0, 2].set_ylim(lithology_map.shape[0] - 0.5, -0.5)
+    # REMOVED the ylim flip - let origin='lower' handle the orientation
     axes[0, 2].set_aspect('equal')
 
-    # Geophysical data
+    # FIXED: Geophysical data - consistent y-axis upward
     grav_key = f"{q_number}-Grav.bmp"
     mag_key = f"{q_number}-Mag.bmp"
 
     if grav_key in geophys_data:
-        # Use origin='lower' to ensure y-axis increases upward
         im4 = axes[1, 0].imshow(geophys_data[grav_key]['raw'], cmap='RdBu_r', origin='lower')
         axes[1, 0].set_title('Gravity Data', fontsize=14, pad=10)
         axes[1, 0].set_xticks(range(0, geophys_data[grav_key]['raw'].shape[1], 100))
         axes[1, 0].set_yticks(range(0, geophys_data[grav_key]['raw'].shape[0], 100))
+        axes[1, 0].set_aspect('equal')
         # Add colorbar for gravity data
         plt.colorbar(im4, ax=axes[1, 0], shrink=0.8)
 
     if mag_key in geophys_data:
-        # Use origin='lower' to ensure y-axis increases upward
         im5 = axes[1, 1].imshow(geophys_data[mag_key]['raw'], cmap='RdBu_r', origin='lower')
         axes[1, 1].set_title('Magnetic Data', fontsize=14, pad=10)
         axes[1, 1].set_xticks(range(0, geophys_data[mag_key]['raw'].shape[1], 100))
         axes[1, 1].set_yticks(range(0, geophys_data[mag_key]['raw'].shape[0], 100))
+        axes[1, 1].set_aspect('equal')
         # Add colorbar for magnetic data
         plt.colorbar(im5, ax=axes[1, 1], shrink=0.8)
 
@@ -275,13 +271,12 @@ def create_high_dpi_figures(final_labels, lithology_map, geophys_data, q_number,
                       title='Lithology Legend', fontsize=10,
                       title_fontsize=12, framealpha=1)
 
-    # Remove colorbars for the first two panels (im1 and im2)
-    # Only add colorbar for the difference map
+    # Add colorbar for the difference map
     diff_cbar = fig.colorbar(im3, ax=axes[0, 2], shrink=0.8)
     diff_cbar.set_label('Difference Encoding (True*10 + Predicted)', rotation=270, labelpad=20)
 
     # Adjust layout to accommodate suptitle
-    plt.tight_layout(rect=[0, 0.0, 1, 0.95])  # Removed space for the bottom text
+    plt.tight_layout(rect=[0, 0.0, 1, 0.95])
 
     # Save at high DPI
     output_path = os.path.join(fig_dir, f'{q_number}_som_classification_results_{dpi}dpi.png')
@@ -290,10 +285,50 @@ def create_high_dpi_figures(final_labels, lithology_map, geophys_data, q_number,
 
     print(f"High-DPI figure saved: {output_path}")
 
+    # NEW: Create individual figure for SOM Classification panel with subtitle "AAAA"
+    create_individual_som_panel(final_labels_colored, cmap, n_colors, q_number, fig_dir, dpi, subtitle="All")
+
     # Also create a separate detailed difference analysis figure
     create_detailed_difference_analysis(lithology_map, final_labels, q_number, lith_mapping, output_dir, dpi)
 
     return output_path
+
+
+def create_individual_som_panel(final_labels_colored, cmap, n_colors, q_number, fig_dir, dpi, subtitle="AAAA"):
+    """Create an individual figure for the SOM Classification panel."""
+
+    # Create a new figure for just the SOM classification panel
+    fig, ax = plt.subplots(1, 1, figsize=(10, 8))
+
+    # Add main title and subtitle
+    fig.suptitle('SOM Classification Result', fontsize=16, fontweight='bold', y=0.95)
+    ax.set_title(subtitle, fontsize=14, pad=10)
+
+    # Plot the SOM classification result with consistent y-axis upward
+    im = ax.imshow(final_labels_colored, cmap=cmap, interpolation='nearest',
+                   vmin=0, vmax=n_colors - 1, origin='lower')
+
+    # Set ticks and grid
+    ax.set_xticks(range(0, final_labels_colored.shape[1], 100))
+    ax.set_yticks(range(0, final_labels_colored.shape[0], 100))
+    ax.grid(True, color='lightgray', linestyle='--', linewidth=0.3)
+    ax.set_aspect('equal')
+
+    # Add labels
+    ax.set_xlabel('X Coordinate', fontsize=12)
+    ax.set_ylabel('Y Coordinate', fontsize=12)
+
+    # Adjust layout
+    plt.tight_layout(rect=[0, 0.0, 1, 0.92])
+
+    # Save the individual panel
+    individual_output_path = os.path.join(fig_dir, f'{q_number}_som_classification_individual_{dpi}dpi.png')
+    plt.savefig(individual_output_path, dpi=dpi, bbox_inches='tight', facecolor='white')
+    plt.close()
+
+    print(f"Individual SOM panel saved: {individual_output_path}")
+
+    return individual_output_path
 
 def create_detailed_difference_analysis(true_labels, pred_labels, q_number, lith_mapping, output_dir, dpi=300):
     """Create a detailed analysis of classification differences with comprehensive ID diagnostics."""
@@ -532,7 +567,7 @@ def create_detailed_difference_analysis(true_labels, pred_labels, q_number, lith
                 diff_map[i, j] = lith_id_to_color_index.get(true_labels[i, j], 0)
 
     # Plot with BCOLOR colormap
-    im = ax.imshow(diff_map, cmap=lithology_cmap, vmin=0, vmax=len(BCOLOR) - 1, interpolation='nearest')
+    im = ax.imshow(diff_map, cmap=lithology_cmap, vmin=0, vmax=len(BCOLOR) - 1, interpolation='nearest',origin='lower')
     ax.set_title(f'Misclassification Map - {q_number}\n(Color shows true lithology where misclassified)', fontsize=14)
     ax.set_xlabel('X Coordinate')
     ax.set_ylabel('Y Coordinate')
@@ -541,7 +576,7 @@ def create_detailed_difference_analysis(true_labels, pred_labels, q_number, lith
     ax.grid(True, color='gray', linestyle='--', linewidth=0.5, alpha=0.3)
     ax.set_xticks(np.arange(0, diff_map.shape[1], 100))
     ax.set_yticks(np.arange(0, diff_map.shape[0], 100))
-    ax.set_ylim(diff_map.shape[0] - 0.5, -0.5)  # Y increases upward
+    #ax.set_ylim(diff_map.shape[0] - 0.5, -0.5)  # Y increases upward
 
     # Calculate comprehensive statistics
     total_relevant_pixels = np.sum(np.isin(true_labels, all_relevant_ids))
@@ -1221,7 +1256,7 @@ def main():
     print("Starting SOM-enhanced processing with NN constraints...")
 
     # Create output directory
-    output_dir = "SyntheticNoddy_SOM_NN"
+    output_dir = "SyntheticNoddy_SOM_NN_All"
     if not os.path.exists(output_dir):
         os.makedirs(output_dir)
         print(f"Created output directory: {output_dir}")

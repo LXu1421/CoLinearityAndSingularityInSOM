@@ -1,6 +1,6 @@
 {
   "adjusted_rand_score": 0.4200869331533051,
-  "silhouette_score": 0.09135156861562935,
+  "silhouette_score": 0.1245106044078646,
   "accuracy": 0.6964760677251157,
   "per_class": {
     "1": {
