@@ -15,6 +15,8 @@ from scipy.stats import pearsonr
 from statsmodels.stats.outliers_influence import variance_inflation_factor
 from skimage.measure import block_reduce
 from matplotlib.colors import LinearSegmentedColormap
+from scipy.ndimage import gaussian_filter
+from matplotlib import patches
 
 # This part of the code is for data preparation
 
@@ -653,7 +655,8 @@ def enhanced_analysis(geophys_data, planview_data, output_dir):
         zones, corr_threshold, gci_median = plot_enhanced_collinearity_heatmap(
             corr_map, gci_map, global_gci,
             f"Model {q_key}",
-            os.path.join(enhanced_dir, f"{q_key}_enhanced_collinearity_analysis.png")
+            os.path.join(enhanced_dir, f"{q_key}_enhanced_collinearity_analysis.png"),
+                                       smooth_sigma=1.0
         )
 
         # Calculate zone statistics
@@ -897,112 +900,274 @@ def calculate_moving_correlation(data1, data2, window_size=5):
     return corr_map
 
 
-def identify_collinearity_zones(corr_map, gci_map, threshold_percentile=90):
-    """Identify and classify different collinearity zones."""
-    # Use absolute correlation threshold
-    corr_threshold = np.percentile(corr_map[~np.isnan(corr_map)], threshold_percentile)
-    gci_median = np.median(gci_map[~np.isnan(gci_map)])
+def identify_collinearity_zones(corr_map, gci_map, threshold_percentile=90,
+                                min_corr_threshold=0.3, min_gci_threshold=0.3):
+    """
+    Identify and classify different collinearity zones with adaptive thresholding.
+
+    Parameters:
+    -----------
+    corr_map : np.ndarray
+        Absolute correlation map
+    gci_map : np.ndarray
+        GCI (Geological Complexity Index) map
+    threshold_percentile : float
+        Percentile for adaptive thresholding (default: 90)
+    min_corr_threshold : float
+        Minimum correlation threshold to ensure meaningful separation (default: 0.3)
+    min_gci_threshold : float
+        Minimum GCI threshold to ensure meaningful separation (default: 0.3)
+
+    Returns:
+    --------
+    zones : np.ndarray
+        Zone classification map (1-4)
+    corr_threshold : float
+        Applied correlation threshold
+    gci_threshold : float
+        Applied GCI threshold
+    zone_stats : dict
+        Statistics about each zone
+    """
+    # Remove NaN values for threshold calculation
+    valid_corr = corr_map[~np.isnan(corr_map)]
+    valid_gci = gci_map[~np.isnan(gci_map)]
+
+    # Calculate basic statistics
+    corr_mean = np.mean(valid_corr)
+    corr_std = np.std(valid_corr)
+    corr_nonzero_pct = np.sum(valid_corr > 0.01) / len(valid_corr) * 100
+
+    gci_mean = np.mean(valid_gci)
+    gci_std = np.std(valid_gci)
+
+    # Adaptive correlation threshold
+    # Use percentile-based threshold, but ensure it's meaningful
+    corr_percentile_threshold = np.percentile(valid_corr, threshold_percentile)
+
+    # If most values are near zero, use a more robust approach
+    if corr_nonzero_pct < 20:  # Less than 20% have meaningful correlation
+        # Use mean + 1 std for sparse correlation maps
+        corr_threshold = max(min_corr_threshold,
+                             corr_mean + corr_std,
+                             np.percentile(valid_corr[valid_corr > 0.01], 75))
+        print(f"⚠️ Sparse correlation detected ({corr_nonzero_pct:.1f}% non-zero)")
+        print(f"   Using robust threshold: {corr_threshold:.3f} (mean+std approach)")
+    else:
+        corr_threshold = max(min_corr_threshold, corr_percentile_threshold)
+
+    # Adaptive GCI threshold
+    # Use median for balanced split, but ensure minimum separation
+    gci_median = np.median(valid_gci)
+
+    # Check if GCI values are too low or too uniform
+    if gci_median < min_gci_threshold:
+        # Use a more robust threshold
+        gci_threshold = max(min_gci_threshold,
+                            gci_mean,
+                            np.percentile(valid_gci, 60))
+        print(f"⚠️ Low GCI values detected (median={gci_median:.3f})")
+        print(f"   Using adjusted threshold: {gci_threshold:.3f}")
+    elif gci_std / (gci_mean + 1e-10) < 0.2:  # Low variability (CoV < 20%)
+        # Use mean instead of median for low-variability data
+        gci_threshold = gci_mean
+        print(f"⚠️ Low GCI variability detected (CoV={gci_std / gci_mean:.2%})")
+        print(f"   Using mean threshold: {gci_threshold:.3f}")
+    else:
+        gci_threshold = gci_median
 
     # Create zone classifications
     zones = np.zeros_like(corr_map, dtype=int)
 
     # Zone 1: High collinearity + High GCI (complex geology with correlated responses)
-    high_corr_high_gci = (corr_map >= corr_threshold) & (gci_map >= gci_median)
+    high_corr_high_gci = (corr_map >= corr_threshold) & (gci_map >= gci_threshold)
     zones[high_corr_high_gci] = 1
 
     # Zone 2: High collinearity + Low GCI (simple geology with correlated responses)
-    high_corr_low_gci = (corr_map >= corr_threshold) & (gci_map < gci_median)
+    high_corr_low_gci = (corr_map >= corr_threshold) & (gci_map < gci_threshold)
     zones[high_corr_low_gci] = 2
 
     # Zone 3: Low collinearity + High GCI (complex geology with uncorrelated responses)
-    low_corr_high_gci = (corr_map < corr_threshold) & (gci_map >= gci_median)
+    low_corr_high_gci = (corr_map < corr_threshold) & (gci_map >= gci_threshold)
     zones[low_corr_high_gci] = 3
 
     # Zone 4: Low collinearity + Low GCI (simple geology with uncorrelated responses)
-    low_corr_low_gci = (corr_map < corr_threshold) & (gci_map < gci_median)
+    low_corr_low_gci = (corr_map < corr_threshold) & (gci_map < gci_threshold)
     zones[low_corr_low_gci] = 4
 
-    return zones, corr_threshold, gci_median
-
-
-def plot_enhanced_collinearity_heatmap(corr_map, gci_map, global_gci, title, save_path):
-    """Create an enhanced collinearity heatmap with clear zone labels and explanations."""
-    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(16, 6))
-
-    # Left panel: Correlation map with GCI contours and zone labels
-    zones, corr_threshold, gci_median = identify_collinearity_zones(corr_map, gci_map)
-
-    # Plot absolute correlation as heatmap
-    im1 = ax1.imshow(corr_map, cmap='RdYlBu_r', vmin=0, vmax=1, origin='lower')
-
-    # Add GCI contours
-    contour_levels = [0.2, 0.4, 0.6, 0.8]
-    cs = ax1.contour(gci_map, levels=contour_levels, colors='black', linewidths=1.5, alpha=0.8)
-    ax1.clabel(cs, inline=True, fontsize=8, fmt='GCI=%.1f', colors='white')
-
-    # Highlight collinearity hotspots (high absolute correlation)
-    hotspots = corr_map >= corr_threshold
-    #ax1.contour(hotspots.astype(int), levels=[0.5], colors='yellow', linewidths=3, alpha=0.9)
-
-    # Add zone annotations with arrows
-    h, w = corr_map.shape
-
-    # Find representative points for each zone
-    zone_points = {}
-    for zone_id in [1, 2, 3, 4]:
+    # Calculate zone statistics
+    zone_stats = {}
+    for zone_id in range(1, 5):
         zone_mask = zones == zone_id
-        if np.any(zone_mask):
-            # Find centroid of largest connected component
-            y_coords, x_coords = np.where(zone_mask)
-            if len(y_coords) > 0:
-                zone_points[zone_id] = (np.mean(x_coords), np.mean(y_coords))
+        zone_count = np.sum(zone_mask)
+        zone_pct = zone_count / zones.size * 100
 
-    # Add labeled arrows pointing to different zones
-    zone_labels = {
-        1: 'High Col.\nHigh GCI',
-        2: 'High Col.\nLow GCI',
-        3: 'Low Col.\nHigh GCI',
-        4: 'Low Col.\nLow GCI'
+        if zone_count > 0:
+            zone_corr_mean = np.mean(corr_map[zone_mask])
+            zone_gci_mean = np.mean(gci_map[zone_mask])
+        else:
+            zone_corr_mean = 0
+            zone_gci_mean = 0
+
+        zone_stats[zone_id] = {
+            'count': zone_count,
+            'percentage': zone_pct,
+            'mean_corr': zone_corr_mean,
+            'mean_gci': zone_gci_mean
+        }
+
+    # Print summary
+    print(f"\n📊 Zone Classification Summary:")
+    print(f"   Correlation threshold: {corr_threshold:.3f} (non-zero: {corr_nonzero_pct:.1f}%)")
+    print(f"   GCI threshold: {gci_threshold:.3f}")
+    print(f"\n   Zone Distribution:")
+    zone_names = {
+        1: "High Corr + High GCI",
+        2: "High Corr + Low GCI",
+        3: "Low Corr + High GCI",
+        4: "Low Corr + Low GCI"
     }
+    for zone_id in range(1, 5):
+        stats = zone_stats[zone_id]
+        if stats['percentage'] > 0.1:  # Only show zones with >0.1% coverage
+            print(f"   Zone {zone_id} ({zone_names[zone_id]}): "
+                  f"{stats['percentage']:.1f}% "
+                  f"(|R|={stats['mean_corr']:.3f}, GCI={stats['mean_gci']:.3f})")
 
-    zone_colors = {1: 'red', 2: 'orange', 3: 'blue', 4: 'green'}
+    return zones, corr_threshold, gci_threshold, zone_stats
 
-    for zone_id, (x, y) in zone_points.items():
-        if zone_id in zone_labels:
-            # Add arrow and label
-            ax1.annotate(zone_labels[zone_id],
-                         xy=(x, y), xytext=(x + w * 0.15, y + h * 0.15),
-                         arrowprops=dict(arrowstyle='->', color=zone_colors[zone_id], lw=2),
-                         bbox=dict(boxstyle="round,pad=0.3", facecolor='white', edgecolor=zone_colors[zone_id],
-                                   alpha=0.9),
-                         fontsize=10, ha='center', weight='bold')
 
-    ax1.set_title(f'{title}\nAbsolute Pearson Correlation |R| with GCI Zones', fontsize=12, weight='bold')
-    ax1.set_xlabel('X (m)', fontsize=10)
-    ax1.set_ylabel('Y (m)', fontsize=10)
+
+
+
+def plot_enhanced_collinearity_heatmap(corr_map, gci_map, global_gci, title, save_path,
+                                       smooth_sigma=1.0):
+    """Create an enhanced collinearity heatmap with clear zone labels and explanations.
+
+    Parameters:
+    -----------
+    smooth_sigma : float
+        Sigma for Gaussian smoothing. Set to 0 to disable smoothing.
+    """
+    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(18, 7))
+
+    # Identify zones
+    # zones, corr_threshold, gci_median = identify_collinearity_zones(corr_map, gci_map)
+    # Update this line in the plotting function
+    zones, corr_threshold, gci_median, zone_stats = identify_collinearity_zones(corr_map, gci_map)
+
+    # Then update references from gci_median to gci_threshold
+
+    # Apply Gaussian smoothing if requested
+    corr_map_smooth = gaussian_filter(corr_map, sigma=smooth_sigma) if smooth_sigma > 0 else corr_map
+    gci_map_smooth = gaussian_filter(gci_map, sigma=smooth_sigma) if smooth_sigma > 0 else gci_map
+
+    # ===================== LEFT PANEL: Correlation map with GCI contours =====================
+    im1 = ax1.imshow(corr_map_smooth, cmap='RdYlBu_r', vmin=0, vmax=1, origin='lower',
+                     interpolation='bilinear')
+
+    # Add GCI contours with distinct colors and thicker lines
+    # contour_levels = [0.2, 0.4, 0.6, 0.8]
+    # contour_colors = ['#00FF00', '#FFFF00', '#FF8800', '#FF0000']  # Green to Red gradient
+
+    # for level, color in zip(contour_levels, contour_colors):
+    #     cs = ax1.contour(gci_map_smooth, levels=[level], colors=[color],
+    #                      linewidths=2.5, alpha=0.9)
+    #     # Add labels with background for better visibility
+    #     ax1.clabel(cs, inline=True, fontsize=9, fmt=f'GCI={level:.1f}',
+    #                inline_spacing=10,
+    #                manual=False)
+
+    # Add zone annotations in corners (avoiding overlap)
+    # h, w = corr_map.shape
+
+    # zone_labels = {
+    #     1: 'High Collinearity\nHigh GCI\n(Critical)',
+    #     2: 'High Collinearity\nLow GCI\n(Warning)',
+    #     3: 'Low Collinearity\nHigh GCI\n(Good)',
+    #     4: 'Low Collinearity\nLow GCI\n(Acceptable)'
+    # }
+
+    # zone_colors = {1: '#FF3333', 2: '#FF9933', 3: '#3366FF', 4: '#33CC33'}
+
+    # Position labels in corners to avoid overlap
+    # label_positions = {
+    #     1: (0.95, 0.95, 'top right'),  # Top right
+    #     2: (0.05, 0.95, 'top left'),  # Top left
+    #     3: (0.95, 0.05, 'bottom right'),  # Bottom right
+    #     4: (0.05, 0.05, 'bottom left')  # Bottom left
+    # }
+
+    # for zone_id in [1, 2, 3, 4]:
+    #     zone_mask = zones == zone_id
+    #     if np.any(zone_mask):
+    #         pos_x, pos_y, alignment = label_positions[zone_id]
+    #
+    #         # Determine text alignment
+    #         ha = 'right' if 'right' in alignment else 'left'
+    #         va = 'top' if 'top' in alignment else 'bottom'
+    #
+    #        # Add label with distinct styling
+    #         ax1.text(pos_x, pos_y, zone_labels[zone_id],
+    #                  transform=ax1.transAxes,
+    #                  fontsize=9, ha=ha, va=va,
+    #                  bbox=dict(boxstyle="round,pad=0.5",
+    #                            facecolor='white',
+    #                            edgecolor=zone_colors[zone_id],
+    #                            linewidth=2.5,
+    #                            alpha=0.95),
+    #                  weight='bold',
+    #                  color=zone_colors[zone_id])
+
+    ax1.set_title(f'{title}\nAbsolute Pearson Correlation |R| with GCI Isolines',
+                  fontsize=13, weight='bold', pad=10)
+    ax1.set_xlabel('X (m)', fontsize=11)
+    ax1.set_ylabel('Y (m)', fontsize=11)
 
     # Add colorbar for correlation
-    cbar1 = plt.colorbar(im1, ax=ax1, shrink=0.8)
-    cbar1.set_label('|Pearson Correlation|', fontsize=10)
+    cbar1 = plt.colorbar(im1, ax=ax1, shrink=0.85)
+    cbar1.set_label('|Pearson Correlation|', fontsize=11, weight='bold')
 
-    # Add legend for thresholds
-    ax1.text(0.02, 0.98, f'Correlation threshold: |R| ≥ {corr_threshold:.3f}\nGCI threshold: {gci_median:.2f}',
-             transform=ax1.transAxes, fontsize=9, verticalalignment='top',
-             bbox=dict(boxstyle="round,pad=0.3", facecolor='white', alpha=0.8))
+    # Add threshold info at bottom
+    threshold_text = (f'Thresholds:'
+                      f'Correlation: |R| ≥ {corr_threshold:.3f}'
+                      f'  GCI: {gci_median:.2f}')
+    ax1.text(0.5, -0.15, threshold_text,
+             transform=ax1.transAxes, fontsize=9,
+             ha='center', va='top',
+             bbox=dict(boxstyle="round,pad=0.5", facecolor='lightyellow',
+                       edgecolor='gray', alpha=0.9))
 
-    # Right panel: Zone classification map
-    zone_cmap = plt.colormaps['Set3'].resampled(4)
-    im2 = ax2.imshow(zones, cmap=zone_cmap, vmin=1, vmax=4, origin='lower')
+    # ===================== RIGHT PANEL: Zone classification map =====================
+    # Use distinct colors for each zone
+    from matplotlib.colors import ListedColormap
+    zone_colors_list = ['#33CC33', '#3366FF', '#FF9933', '#FF3333']  # Order: 4,3,2,1
+    zone_cmap = ListedColormap(zone_colors_list)
 
-    ax2.set_title('Collinearity-GCI Zone Classification', fontsize=12, weight='bold')
-    ax2.set_xlabel('X (m)', fontsize=10)
-    ax2.set_ylabel('Y (m)', fontsize=10)
+    im2 = ax2.imshow(zones, cmap=zone_cmap, vmin=1, vmax=4, origin='lower',
+                     interpolation='nearest')
 
-    # Add colorbar for zones
-    cbar2 = plt.colorbar(im2, ax=ax2, shrink=0.8, ticks=[1, 2, 3, 4])
-    cbar2.set_label('Zone Type', fontsize=10)
-    cbar2.set_ticklabels(['High Col.\nHigh GCI', 'High Col.\nLow GCI',
-                          'Low Col.\nHigh GCI', 'Low Col.\nLow GCI'])
+    ax2.set_title('Collinearity-GCI Zone Classification', fontsize=13, weight='bold', pad=10)
+    ax2.set_xlabel('X (m)', fontsize=11)
+    ax2.set_ylabel('Y (m)', fontsize=11)
+
+    # Add colorbar with better labels
+    cbar2 = plt.colorbar(im2, ax=ax2, shrink=0.85, ticks=[1, 2, 3, 4])
+    cbar2.set_label('Zone Type', fontsize=11, weight='bold')
+    cbar2.ax.set_yticklabels(['High Col.\nHigh GCI', 'High Col.\nLow GCI',
+                              'Low Col.\nHigh GCI', 'Low Col.\nLow GCI'],
+                             fontsize=9)
+
+    # Add legend for zone interpretation
+    # legend_elements = [
+    #     patches.Patch(facecolor='#FF3333', edgecolor='black', label='Zone 1: Critical (avoid)'),
+    #     patches.Patch(facecolor='#FF9933', edgecolor='black', label='Zone 2: Warning'),
+    #     patches.Patch(facecolor='#3366FF', edgecolor='black', label='Zone 3: Good'),
+    #     patches.Patch(facecolor='#33CC33', edgecolor='black', label='Zone 4: Acceptable')
+    # ]
+    # ax2.legend(handles=legend_elements, loc='upper center',
+    #           bbox_to_anchor=(0.5, -0.12), ncol=2, fontsize=9,
+    #            framealpha=0.9)
 
     plt.tight_layout()
     plt.savefig(save_path, dpi=300, bbox_inches='tight')
