@@ -1,4 +1,0 @@
-ID,Name,Precision,Recall,F1,True_Count,Pred_Count
-1,Metamorphic rocks,0.22349874040658504,1.0,0.3653436379220356,228894,1024140
-2,Sedimentary cover,0.0,0.0,0.0,152906,0
-3,Psammitic sediment,0.0,0.0,0.0,484285,0

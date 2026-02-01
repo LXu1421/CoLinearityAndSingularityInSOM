@@ -1,6 +1,0 @@
-cluster_id,lithology_id,lithology_name,pixels,confidence
-1,2,Sedimentary cover,381122,0.5587370973074238
-2,5,Pelitic sediment,157989,0.8355898195443987
-3,2,Sedimentary cover,114582,0.7439213838124662
-4,4,Felsic intrusive,175827,0.495788473897638
-5,1,Mafic volcanic,194620,0.6217552152913369

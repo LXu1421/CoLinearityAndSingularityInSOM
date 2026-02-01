@@ -1,5 +1,0 @@
-cluster_id,lithology_id,lithology_name,pixels,confidence
-1,1,Sedimentary cover,172434,0.5128860897502813
-2,1,Sedimentary cover,472723,0.8871072488539801
-3,2,Psammitic sediment,314070,0.544047505333206
-4,3,Felsic intrusive,64913,0.5334062514442407
