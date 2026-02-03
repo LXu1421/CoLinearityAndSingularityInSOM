@@ -116,14 +116,33 @@ def train_som(X, som_shape=(20, 20), n_iter=1000):
 
 
 def plot_u_matrix(som, title, filename):
-    u_matrix = som.distance_map()
+    """
+    Plot the SOM U-Matrix (Unified Distance Matrix), which represents 
+    the average distance between each SOM node's weight vector and
+    its immediate neighbours.
+    """
+    # Compute U-Matrix
+    u_matrix = som.distance_map()  # shape: (som_x, som_y)
 
     plt.figure(figsize=(6, 5))
-    plt.pcolor(u_matrix.T, cmap='bone_r')
-    plt.colorbar()
+    im = plt.imshow(
+        u_matrix.T,
+        origin="lower",
+        cmap="bone_r",
+        interpolation="nearest"
+    )
+
+    cbar = plt.colorbar(im)
+    cbar.set_label("Mean distance to neighbouring SOM nodes")
+
+    plt.xlabel("SOM node index (x)")
+    plt.ylabel("SOM node index (y)")
     plt.title(title)
-    plt.savefig(filename)
+
+    plt.tight_layout()
+    plt.savefig(filename, dpi=300)
     plt.close()
+
 
 
 def evaluate_som_performance(som, X, labels):
